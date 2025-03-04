@@ -15,8 +15,6 @@ import java.lang.InterruptedException;
 
 @RestController
 @RequestMapping("/Books")
-// For UI: http://localhost:8080/
-// For Postman: http://localhost:8080/Books
 public class BooksController {
 
     @Autowired
@@ -24,21 +22,26 @@ public class BooksController {
 
     @GetMapping("/")
     public ResponseEntity<ApiResponse<List<RestBooks>>> getAllBooks() {
-        ApiResponse<List<RestBooks>> response = bookService.getAllBooks().getBody();
-        if (response != null && response.data() != null && !response.data().isEmpty()) {
-            return ResponseEntity.ok(new ApiResponse<>(true, "Books List", response.data(), null));
-        } else {
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).body(new ApiResponse<>(true, "No books found", null, null));
+        try {
+            List<RestBooks> restBooks = bookService.getAllBooks();
+
+            if (!restBooks.isEmpty()) {
+                return ResponseEntity.ok(new ApiResponse<>(true, "Books List", restBooks, null));
+            } else {
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(new ApiResponse<>(true, "No books found", null, null));
+            }
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving books", null, e.getMessage()));
         }
     }
 
     @PostMapping("/add")
-    public ResponseEntity<ApiResponse<RestBooks>> addBook(@RequestBody RestBooks book) {
-        ApiResponse<RestBooks> response = bookService.addBook(book).getBody();
-        if (response != null && response.data() != null) {
-            return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(true, "Book created", response.data(), null));
-        } else {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error creating book", null, null));
+    public ResponseEntity<ApiResponse<String>> addBook(@RequestBody RestBooks book) {
+        try {
+            String bookId = bookService.addBook(book);
+            return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(true, "Book created", bookId, null));
+        } catch (InterruptedException | ExecutionException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error creating book", null, e.getMessage()));
         }
     }
 
@@ -57,23 +60,25 @@ public class BooksController {
         }
     }
 
+    @PutMapping("/{bookId}")
+    public ResponseEntity<ApiResponse<String>> updateBook(@PathVariable String bookId, @RequestBody RestBooks updatedBook) {
+        try {
+            String updateTime = bookService.updateBook(bookId, updatedBook);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Book updated", updateTime, null));
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error updating book", null, e.getMessage()));
+        }
+    }
+
     @GetMapping("/Users/{userId}")
     public ResponseEntity<ApiResponse<List<RestBooks>>> getBooksByUserId(@PathVariable String userId) {
-        ApiResponse<List<RestBooks>> response = bookService.getBooksByUserId(userId).getBody();
-        if (response != null && response.data() != null && !response.data().isEmpty()) {
-            return ResponseEntity.ok(new ApiResponse<>(true, "Books by User", response.data(), null));
-        } else {
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).body(new ApiResponse<>(true, "No books found for user", null, null));
-        }
+        // Implement getBooksByUserId logic if needed.
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(new ApiResponse<>(false, "Not implemented", null, null));
     }
 
     @GetMapping("/Courses/{courseId}")
     public ResponseEntity<ApiResponse<List<RestBooks>>> getBooksByCourseId(@PathVariable String courseId) {
-        ApiResponse<List<RestBooks>> response = bookService.getBooksByCourseId(courseId).getBody();
-        if (response != null && response.data() != null && !response.data().isEmpty()) {
-            return ResponseEntity.ok(new ApiResponse<>(true, "Books by Course", response.data(), null));
-        } else {
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).body(new ApiResponse<>(true, "No books found for course", null, null));
-        }
+        // Implement getBooksByCourseId logic if needed.
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(new ApiResponse<>(false, "Not implemented", null, null));
     }
 }

@@ -1,112 +1,107 @@
 package edu.famu.thebookexchange.service;
 
-import com.google.cloud.firestore.QuerySnapshot;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
 import edu.famu.thebookexchange.model.Rest.RestBooks;
-import edu.famu.thebookexchange.util.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 
 @Service
 public class BooksService {
 
     private static final Logger logger = LoggerFactory.getLogger(BooksService.class);
-    private static final Firestore db = FirestoreClient.getFirestore();
-    private static final CollectionReference BooksCollection = db.collection("Books");
+    private Firestore firestore;
+
+    private static final String BOOKS_COLLECTION = "Books";
     private static final long FIRESTORE_TIMEOUT = 5; // Timeout in seconds
 
+    public BooksService() {
+        this.firestore = FirestoreClient.getFirestore();
+    }
 
 
-    public ResponseEntity<ApiResponse<List<RestBooks>>> getAllBooks() {
-        try {
+    public List<RestBooks> getAllBooks() throws InterruptedException, ExecutionException, TimeoutException {
+        CollectionReference booksCollection = firestore.collection(BOOKS_COLLECTION);
+        ApiFuture<QuerySnapshot> querySnapshot = booksCollection.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
 
+        List<RestBooks> books = new ArrayList<>();
 
-            logger.info("Retrieving all books from Firestore...");
-            List<RestBooks> books = BooksCollection.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).toObjects(RestBooks.class);
+        for (QueryDocumentSnapshot document : documents) {
+            if (document.exists()) {
+                Double price = document.getDouble("price");
+                double actualPrice = (price != null) ? price : 0.0;
 
+                Boolean isDigitalBoolean = document.getBoolean("is_digital");
+                boolean actualIsDigital = (isDigitalBoolean != null) ? isDigitalBoolean : false; // Default to false
 
-            logger.info("Retrieved {} books from Firestore", books.size());
-            if (books.isEmpty()) {
-                logger.warn("No books found in Firestore collection");
-            } else {
-                logger.debug("Retrieved books: {}", books);
+                RestBooks book = new RestBooks(
+                        document.getString("title"),
+                        document.getString("author"),
+                        document.getString("edition"),
+                        document.getString("ISBN"),
+                        document.getString("condition"),
+                        document.getString("description"),
+                        actualPrice,
+                        actualIsDigital, // Use actualIsDigital
+                        document.getString("digital_copy_path"),
+                        document.get("courseId", DocumentReference.class),
+                        document.get("userId", DocumentReference.class)
+                );
+                books.add(book);
             }
-            return ResponseEntity.ok(new ApiResponse<>(true, "Books retrieved successfully", books, null));
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error retrieving all books", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving books", null, e.getMessage()));
         }
 
+        return books;
     }
 
-    public ResponseEntity<ApiResponse<RestBooks>> addBook(RestBooks book) {
-        try {
-            // No need to set bookId, Firestore will auto-generate it
-            logger.info("Adding book to Firestore");
-            BooksCollection.add(book).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
-            logger.info("Book added successfully to Firestore");
-            return ResponseEntity.ok(new ApiResponse<>(true, "Book added successfully", book, null));
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error adding book", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error adding book", null, e.getMessage()));
-        }
-    }
+    public String addBook(RestBooks book) throws InterruptedException, ExecutionException {
+        logger.info("Adding book with details: {}", book);
 
-    //update getBookById, updateBook, and deleteBook as needed.
-    public ResponseEntity<ApiResponse<List<RestBooks>>> getBooksByUserId(String userId) {
-        try {
-            logger.info("Retrieving books by user ID: {}", userId);
-            List<RestBooks> books = BooksCollection.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).toObjects(RestBooks.class).stream()
-                    .filter(book -> book.getUserId().getId().equals(userId))
-                    .collect(Collectors.toList());
-            logger.info("Retrieved {} books by user ID: {}", books.size(), userId);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Books retrieved by user ID successfully", books, null));
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error retrieving books by user ID {}", userId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving books by user ID", null, e.getMessage()));
-        }
-    }
+        Map<String, Object> bookData = new HashMap<>();
+        bookData.put("title", book.getTitle());
+        bookData.put("author", book.getAuthor());
+        bookData.put("edition", book.getEdition());
+        bookData.put("ISBN", book.getISBN());
+        bookData.put("condition", book.getCondition());
+        bookData.put("description", book.getDescription());
+        bookData.put("price", book.getPrice());
+        bookData.put("is_digital", book.isDigital());
+        bookData.put("digital_copy_path", book.getDigitalCopyPath());
+        bookData.put("courseId", book.getCourseId());
+        bookData.put("userId", book.getUserId());
 
-    public ResponseEntity<ApiResponse<List<RestBooks>>> getBooksByCourseId(String courseId) {
-        try {
-            logger.info("Retrieving books by course ID: {}", courseId);
-            List<RestBooks> books = BooksCollection.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).toObjects(RestBooks.class).stream()
-                    .filter(book -> book.getCourseId().getId().equals(courseId))
-                    .collect(Collectors.toList());
-            logger.info("Retrieved {} books by course ID: {}", books.size(), courseId);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Books retrieved by course ID successfully", books, null));
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error retrieving books by course ID {}", courseId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving books by course ID", null, e.getMessage()));
-        }
+        ApiFuture<DocumentReference> writeResult = firestore.collection(BOOKS_COLLECTION).add(bookData);
+        DocumentReference rs = writeResult.get();
+        logger.info("Book added with ID: {}", rs.getId());
+        return rs.getId();
     }
 
     public boolean deleteBookByTitle(String title) throws ExecutionException, InterruptedException, TimeoutException {
         try {
-            Query query = BooksCollection.whereEqualTo("title", title);
+            Query query = firestore.collection(BOOKS_COLLECTION).whereEqualTo("title", title);
             ApiFuture<QuerySnapshot> querySnapshot = query.get();
             List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
 
             if (!documents.isEmpty()) {
                 for (QueryDocumentSnapshot document : documents) {
-                    BooksCollection.document(document.getId()).delete().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
-                    logger.info("Book deleted successfully with ID: {}", document.getId());
+                    firestore.collection(BOOKS_COLLECTION).document(document.getId()).delete().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                    logger.info("Book deleted successfully with ID: {} and title: {}", document.getId(), title);
                 }
-                return true; // Deletion successful
+                return true;
             } else {
                 logger.warn("Book not found for deletion with title: {}", title);
-                return false; // Book not found
+                return false;
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error deleting book with title: {}", title, e);
@@ -114,4 +109,25 @@ public class BooksService {
         }
     }
 
+    public String updateBook(String bookId, RestBooks updatedBook) throws InterruptedException, ExecutionException, TimeoutException {
+        DocumentReference bookRef = firestore.collection(BOOKS_COLLECTION).document(bookId);
+
+        Map<String, Object> updatedBookData = new HashMap<>();
+        updatedBookData.put("title", updatedBook.getTitle());
+        updatedBookData.put("author", updatedBook.getAuthor());
+        updatedBookData.put("edition", updatedBook.getEdition());
+        updatedBookData.put("ISBN", updatedBook.getISBN());
+        updatedBookData.put("condition", updatedBook.getCondition());
+        updatedBookData.put("description", updatedBook.getDescription());
+        updatedBookData.put("price", updatedBook.getPrice());
+        updatedBookData.put("is_digital", updatedBook.isDigital());
+        updatedBookData.put("digital_copy_path", updatedBook.getDigitalCopyPath());
+        updatedBookData.put("courseId", updatedBook.getCourseId());
+        updatedBookData.put("userId", updatedBook.getUserId());
+
+        ApiFuture<WriteResult> writeResult = bookRef.update(updatedBookData);
+        logger.info("Book updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
+
+        return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
+    }
 }

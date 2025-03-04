@@ -3,23 +3,26 @@ package edu.famu.thebookexchange.model.Rest;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.cloud.firestore.DocumentReference;
-import edu.famu.thebookexchange.model.Abstracts.AUsers;
-import lombok.Getter;
+import edu.famu.thebookexchange.model.Abstracts.ACourses;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-@Setter
-@Getter
 @NoArgsConstructor
-public class RestUsers extends AUsers {
+public class RestCourses extends ACourses {
 
     @JsonSerialize(using = DocumentReferenceSerializer.class)
     @JsonDeserialize(using = DocumentReferenceDeserializer.class)
     private DocumentReference userId; // DocumentReference acts as the userId
 
-    public RestUsers(String email, String password, String major, String profilePicture, DocumentReference userId) {
-        super(email, password, major, profilePicture);
+    public RestCourses(String courseName, String textbookList, DocumentReference userId) {
+        super(courseName, textbookList);
         this.userId = userId;
     }
 
+    public DocumentReference getUserId() {
+        return userId;
+    }
+
+    public void setUserId(DocumentReference userId) {
+        this.userId = userId;
+    }
 }

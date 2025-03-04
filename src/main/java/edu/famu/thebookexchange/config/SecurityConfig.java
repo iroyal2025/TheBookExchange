@@ -13,6 +13,9 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+
+//For UI: http://localhost:8080/
+// For Postman: http://localhost:8080/"Collection Name"/
 public class SecurityConfig {
 
     @Bean
