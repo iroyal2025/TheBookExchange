@@ -53,4 +53,20 @@ public class CoursesController {
             if (deleted) {
                 return ResponseEntity.ok(new ApiResponse<>(true, "Course deleted successfully", null, null));
             } else {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to delete course", null
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to delete course", null, null));
+            }
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error deleting course", null, e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{courseId}")
+    public ResponseEntity<ApiResponse<String>> updateCourse(@PathVariable String courseId, @RequestBody RestCourses updatedCourse) {
+        try {
+            String updateTime = courseService.updateCourse(courseId, updatedCourse);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Course updated", updateTime, null));
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error updating course", null, e.getMessage()));
+        }
+    }
+}

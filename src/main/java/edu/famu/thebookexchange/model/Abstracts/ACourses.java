@@ -10,14 +10,20 @@ import lombok.Setter;
 @NoArgsConstructor
 public abstract class ACourses {
 
-    @JsonProperty("courseName")
+    @JsonProperty("Course Name")
     private String courseName;
 
-    @JsonProperty("textbookList")
-    private String textbookList;
-
-    public ACourses(String courseName, String textbookList) {
+    public ACourses(String courseName) {
         this.courseName = courseName;
-        this.textbookList = textbookList;
+    }
+
+    // Manual Getters
+    public String getCourseName() {
+        return courseName;
+    }
+
+    // Manual Setters (if needed, though @Setter already provides them)
+    public void setCourseName(String courseName) {
+        this.courseName = courseName;
     }
 }

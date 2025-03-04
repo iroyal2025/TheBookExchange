@@ -39,8 +39,7 @@ public class CoursesService {
         for (QueryDocumentSnapshot document : documents) {
             if (document.exists()) {
                 RestCourses course = new RestCourses(
-                        document.getString("courseName"),
-                        document.getString("textbookList"),
+                        document.getString("Course Name"),
                         document.getReference() // Correctly get the DocumentReference
                 );
                 courses.add(course);
@@ -55,7 +54,6 @@ public class CoursesService {
 
         Map<String, Object> courseData = new HashMap<>();
         courseData.put("courseName", course.getCourseName());
-        courseData.put("textbookList", course.getTextbookList());
 
         ApiFuture<DocumentReference> writeResult = firestore.collection(COURSES_COLLECTION).add(courseData);
         DocumentReference rs = writeResult.get();
@@ -72,15 +70,15 @@ public class CoursesService {
             if (!documents.isEmpty()) {
                 for (QueryDocumentSnapshot document : documents) {
                     firestore.collection(COURSES_COLLECTION).document(document.getId()).delete().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
-                    logger.info("Course deleted successfully with ID: {} and courseName: {}", document.getId(), courseName);
+                    logger.info("Course deleted successfully with ID: {} and Course Name: {}", document.getId(), courseName);
                 }
                 return true;
             } else {
-                logger.warn("Course not found for deletion with courseName: {}", courseName);
+                logger.warn("Course not found for deletion with Course Name: {}", courseName);
                 return false;
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error deleting course with courseName: {}", courseName, e);
+            logger.error("Error deleting course with Course Name: {}", courseName, e);
             throw e;
         }
     }
@@ -89,8 +87,7 @@ public class CoursesService {
         DocumentReference courseRef = firestore.collection(COURSES_COLLECTION).document(courseId);
 
         Map<String, Object> updatedCourseData = new HashMap<>();
-        updatedCourseData.put("courseName", updatedCourse.getCourseName());
-        updatedCourseData.put("textbookList", updatedCourse.getTextbookList());
+        updatedCourseData.put("Course Name", updatedCourse.getCourseName());
 
         ApiFuture<WriteResult> writeResult = courseRef.update(updatedCourseData);
         logger.info("Course updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
