@@ -1,20 +1,24 @@
+'use client'; // This is a client component
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
-function Login() {
+export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const navigate = useNavigate();
+    const router = useRouter();
 
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post('/login', { email, password });
+            const response = await axios.post('http://localhost:3001/login', { // Or your backend URL
+                email,
+                password,
+            });
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('role', response.data.role);
-            navigate(`/${response.data.role}-dashboard`);
+            router.push(`/${response.data.role}-dashboard`);
         } catch (err) {
             setError('Invalid credentials');
         }
@@ -42,5 +46,3 @@ function Login() {
         </div>
     );
 }
-
-export default Login;
