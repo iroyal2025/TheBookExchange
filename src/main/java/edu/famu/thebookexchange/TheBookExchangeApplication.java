@@ -5,7 +5,6 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.ComponentScan;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -18,7 +17,7 @@ public class TheBookExchangeApplication {
     public static void main(String[] args) throws IOException {
         // Firebase Initialization
         ClassLoader loader = TheBookExchangeApplication.class.getClassLoader();
-        File file = new File(Objects.requireNonNull(loader.getResource("serviceAccountKey.json")).getFile());
+        File file = new File(Objects.requireNonNull(loader.getResource("TheBookExchangeFrontend/server for app/serviceAccountKey.json")).getFile());
         FileInputStream serviceAccount = new FileInputStream(file.getAbsolutePath());
 
         FirebaseOptions options = new FirebaseOptions.Builder()
