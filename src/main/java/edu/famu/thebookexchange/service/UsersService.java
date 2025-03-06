@@ -43,6 +43,7 @@ public class UsersService {
                         document.getString("password"),
                         document.getString("major"),
                         document.getString("profilePicture"),
+                        document.getString("role"), // Added role retrieval
                         document.getReference() // Correctly get the DocumentReference
                 );
                 users.add(user);
@@ -60,6 +61,7 @@ public class UsersService {
         userData.put("password", user.getPassword());
         userData.put("major", user.getMajor());
         userData.put("profilePicture", user.getProfilePicture());
+        userData.put("role", user.getRole()); // Added role
 
         ApiFuture<DocumentReference> writeResult = firestore.collection(USERS_COLLECTION).add(userData);
         DocumentReference rs = writeResult.get();
@@ -97,6 +99,7 @@ public class UsersService {
         updatedUserData.put("password", updatedUser.getPassword());
         updatedUserData.put("major", updatedUser.getMajor());
         updatedUserData.put("profilePicture", updatedUser.getProfilePicture());
+        updatedUserData.put("role", updatedUser.getRole()); // Added role
 
         ApiFuture<WriteResult> writeResult = userRef.update(updatedUserData);
         logger.info("User updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());

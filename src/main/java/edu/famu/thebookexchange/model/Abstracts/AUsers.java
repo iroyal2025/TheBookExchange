@@ -22,11 +22,15 @@ public abstract class AUsers {
     @JsonProperty("profilePicture")
     private String profilePicture;
 
-    public AUsers(String email, String password, String major, String profilePicture) {
+    @JsonProperty("role") // Added role field
+    private String role;
+
+    public AUsers(String email, String password, String major, String profilePicture, String role) {
         this.email = email;
         this.password = password;
         this.major = major;
         this.profilePicture = profilePicture;
+        this.role = role; // Added role field
     }
 
     // Manual Getters
@@ -46,6 +50,10 @@ public abstract class AUsers {
         return profilePicture;
     }
 
+    public String getRole() { // Added role getter
+        return role;
+    }
+
     // Manual Setters (if needed, though @Setter already provides them)
     public void setEmail(String email) {
         this.email = email;
@@ -61,5 +69,9 @@ public abstract class AUsers {
 
     public void setProfilePicture(String profilePicture) {
         this.profilePicture = profilePicture;
+    }
+
+    public void setRole(String role) { // Added role setter
+        this.role = role;
     }
 }

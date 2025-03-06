@@ -17,8 +17,8 @@ public class RestUsers extends AUsers {
     @JsonDeserialize(using = DocumentReferenceDeserializer.class)
     private DocumentReference userId; // DocumentReference acts as the userId
 
-    public RestUsers(String email, String password, String major, String profilePicture, DocumentReference userId) {
-        super(email, password, major, profilePicture);
+    public RestUsers(String email, String password, String major, String profilePicture, String role, DocumentReference userId) {
+        super(email, password, major, profilePicture, role); // Added role to super constructor.
         this.userId = userId;
     }
 

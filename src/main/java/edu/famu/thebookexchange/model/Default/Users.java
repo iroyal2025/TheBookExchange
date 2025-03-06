@@ -12,13 +12,15 @@ public class Users {
     private String password;
     private String major;
     private String profilePicture;
+    private String role; // Added role field
 
-    public Users(int userId, String email, String password, String major, String profilePicture) {
+    public Users(int userId, String email, String password, String major, String profilePicture, String role) {
         this.userId = userId;
         this.email = email;
         this.password = password;
         this.major = major;
         this.profilePicture = profilePicture;
+        this.role = role; // Added role initialization
     }
 
     // Manual Getters (If Lombok is not working)
@@ -42,6 +44,10 @@ public class Users {
         return profilePicture;
     }
 
+    public String getRole() { // Added role getter
+        return role;
+    }
+
     // Manual Setters (If needed)
     public void setUserId(int userId) {
         this.userId = userId;
@@ -61,5 +67,9 @@ public class Users {
 
     public void setProfilePicture(String profilePicture) {
         this.profilePicture = profilePicture;
+    }
+
+    public void setRole(String role) { // Added role setter
+        this.role = role;
     }
 }

@@ -6,25 +6,28 @@ import com.google.firebase.FirebaseOptions;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Objects;
+import java.io.InputStream;
 
 @SpringBootApplication
 public class TheBookExchangeApplication {
 
     public static void main(String[] args) throws IOException {
         // Firebase Initialization
-        ClassLoader loader = TheBookExchangeApplication.class.getClassLoader();
-        File file = new File(Objects.requireNonNull(loader.getResource("TheBookExchangeFrontend/server for app/serviceAccountKey.json")).getFile());
-        FileInputStream serviceAccount = new FileInputStream(file.getAbsolutePath());
+        InputStream serviceAccount = TheBookExchangeApplication.class.getClassLoader().getResourceAsStream("serviceAccountKey.json");
+
+        if (serviceAccount == null) {
+            System.err.println("serviceAccountKey.json not found in resources.");
+            return; // Exit if the file is not found
+        }
 
         FirebaseOptions options = new FirebaseOptions.Builder()
                 .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                 .build();
-        if (FirebaseApp.getApps().isEmpty())
+
+        if (FirebaseApp.getApps().isEmpty()) {
             FirebaseApp.initializeApp(options);
+        }
 
         // Spring Boot Application Run
         SpringApplication.run(TheBookExchangeApplication.class, args);
