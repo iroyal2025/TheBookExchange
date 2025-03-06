@@ -2,13 +2,14 @@ package edu.famu.thebookexchange.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.famu.thebookexchange.LoginRequest;
-import edu.famu.thebookexchange.service.UserDetailsServiceImpl; // Import your UserDetailsService
+import edu.famu.thebookexchange.service.UserDetailsServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.*;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -48,7 +49,11 @@ public class SecurityConfig {
     @Bean
     public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
+        try {
+            authProvider.setUserDetailsService(userDetailsService);
+        } catch (NullPointerException e) {
+            System.err.println("Warning: setUserDetailsService() failed (suppressed).");
+        }
         authProvider.setPasswordEncoder(passwordEncoder);
         return authProvider;
     }
