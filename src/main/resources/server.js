@@ -1,14 +1,19 @@
+// server.js (Modified - NOT RECOMMENDED for production)
+require('dotenv').config();
 const express = require('express');
 const admin = require('firebase-admin');
 const jwt = require('jsonwebtoken');
-const cors = require('cors'); // Import cors
+const cors = require('cors');
 
 const app = express();
 app.use(express.json());
-app.use(cors()); // Use cors
 
-// Initialize Firebase Admin SDK
-const serviceAccount = require('./serviceAccountKey.json'); // path to service account key
+const corsOptions = {
+    origin: 'http://localhost:3000',
+};
+app.use(cors(corsOptions));
+
+const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 
 app.post('/login', async (req, res) => {
@@ -18,7 +23,7 @@ app.post('/login', async (req, res) => {
         const query = await usersCollection.where('email', '==', email).get();
 
         if (query.empty) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            return res.status(401).json({ error: 'Invalid email or password' });
         }
 
         let user;
@@ -26,13 +31,16 @@ app.post('/login', async (req, res) => {
             user = doc.data();
         });
 
-        // Password verification (replace with bcrypt)
+        // Plain text password comparison (NOT RECOMMENDED)
         if (user.password !== password) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            return res.status(401).json({ error: 'Invalid email or password' });
         }
 
-        const role = user.role; // Assuming you have a 'role' field in your Users collection
-        const token = jwt.sign({ uid: query.docs[0].id, role }, 'your-secret-key'); // query.docs[0].id to get the uid
+        const role = user.role;
+        const token = jwt.sign(
+            { uid: query.docs[0].id, role },
+            process.env.JWT_SECRET_KEY
+        );
 
         res.json({ token, role });
     } catch (error) {
