@@ -6,6 +6,7 @@ import com.google.firebase.cloud.FirestoreClient;
 import edu.famu.thebookexchange.model.Rest.RestUsers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; // Import BCryptPasswordEncoder
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ public class UsersService {
 
     private static final Logger logger = LoggerFactory.getLogger(UsersService.class);
     private Firestore firestore;
+    private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(); // Add BCryptPasswordEncoder
 
     private static final String USERS_COLLECTION = "Users";
     private static final long FIRESTORE_TIMEOUT = 5; // Timeout in seconds
@@ -58,7 +60,7 @@ public class UsersService {
 
         Map<String, Object> userData = new HashMap<>();
         userData.put("email", user.getEmail());
-        userData.put("password", user.getPassword());
+        userData.put("password", passwordEncoder.encode(user.getPassword())); // Encode password
         userData.put("major", user.getMajor());
         userData.put("profilePicture", user.getProfilePicture());
         userData.put("role", user.getRole()); // Added role
@@ -96,10 +98,14 @@ public class UsersService {
 
         Map<String, Object> updatedUserData = new HashMap<>();
         updatedUserData.put("email", updatedUser.getEmail());
-        updatedUserData.put("password", updatedUser.getPassword());
         updatedUserData.put("major", updatedUser.getMajor());
         updatedUserData.put("profilePicture", updatedUser.getProfilePicture());
-        updatedUserData.put("role", updatedUser.getRole()); // Added role
+        updatedUserData.put("role", updatedUser.getRole());
+
+        // Only update password if it's provided and not empty
+        if (updatedUser.getPassword() != null && !updatedUser.getPassword().isEmpty()) {
+            updatedUserData.put("password", passwordEncoder.encode(updatedUser.getPassword())); // Encode password
+        }
 
         ApiFuture<WriteResult> writeResult = userRef.update(updatedUserData);
         logger.info("User updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());

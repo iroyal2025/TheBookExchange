@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import axios from './axiosConfig'; // Import configured Axios
+import axios from '../lib/axiosConfig';
 import { useRouter } from 'next/navigation';
 
 export default function Login() {
@@ -12,18 +12,36 @@ export default function Login() {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post('http://localhost:8080/auth/login', {
-                email,
-                password,
-            });
-            console.log("Login successful:", response.data); // Log the response message
-            // localStorage.setItem('token', response.data.token); // Remove token storage
-            // localStorage.setItem('role', response.data.role); // Remove role storage
-            // console.log("Redirecting to:", `/${response.data.role}-dashboard`); // Remove role-based redirect
-            router.push(`/dashboard`); // Redirect to a default dashboard
+            const response = await axios.post(
+                'http://localhost:8080/auth/verify',
+                null,
+                {
+                    params: {
+                        email: email, // Directly send email and password
+                        password: password,
+                    },
+                }
+            );
+
+            const role = response.data.role;
+
+            if (role === 'admin') {
+                router.push('/admin-dashboard');
+            } else if (role === 'teacher') {
+                router.push('/teacher-dashboard');
+            } else if (role === 'student') {
+                router.push('/student-dashboard');
+            } else if (role === 'parent') {
+                router.push('/parent-dashboard');
+            } else {
+                router.push('/dashboard');
+            }
         } catch (err) {
             setError('Invalid credentials');
             console.error("Login Error: ", err);
+            if(err.response){
+                console.error("Backend Error:", err.response.data);
+            }
         }
     };
 
