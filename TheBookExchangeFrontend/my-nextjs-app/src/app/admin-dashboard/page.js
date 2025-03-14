@@ -21,24 +21,10 @@ export default function AdminDashboard() {
                 <div className="flex justify-center mb-8">
                     <Button
                         variant={activeTab === 'users' ? 'default' : 'outline'}
-                        className={`mr-4 ${activeTab === 'users' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
+                        className={`${activeTab === 'users' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
                         onClick={() => handleTabClick('users')}
                     >
                         Manage Users
-                    </Button>
-                    <Button
-                        variant={activeTab === 'books' ? 'default' : 'outline'}
-                        className={`mr-4 ${activeTab === 'books' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
-                        onClick={() => handleTabClick('books')}
-                    >
-                        Manage Books
-                    </Button>
-                    <Button
-                        variant={activeTab === 'reports' ? 'default' : 'outline'}
-                        className={`${activeTab === 'reports' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
-                        onClick={() => handleTabClick('reports')}
-                    >
-                        View Reports
                     </Button>
                 </div>
 

@@ -11,20 +11,24 @@ export default function Login() {
 
     const handleLogin = async (e) => {
         e.preventDefault();
+        setError('');
+
         try {
+            // 1. Backend Authentication - Verify Role and isActive
             const response = await axios.post(
                 'http://localhost:8080/auth/verify',
                 null,
                 {
                     params: {
-                        email: email, // Directly send email and password
-                        password: password,
+                        email: email,
+                        password: password, // Send email and password
                     },
                 }
             );
 
             const role = response.data.role;
 
+            // 2. Role-Based Navigation
             if (role === 'admin') {
                 router.push('/admin-dashboard');
             } else if (role === 'teacher') {
@@ -37,9 +41,13 @@ export default function Login() {
                 router.push('/dashboard');
             }
         } catch (err) {
-            setError('Invalid credentials');
+            if (err.response && err.response.status === 403) {
+                setError('Your account is deactivated. Please contact an administrator.');
+            } else {
+                setError('Invalid credentials or account issue');
+            }
             console.error("Login Error: ", err);
-            if(err.response){
+            if (err.response) {
                 console.error("Backend Error:", err.response.data);
             }
         }

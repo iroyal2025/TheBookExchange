@@ -1,36 +1,32 @@
 package edu.famu.thebookexchange.model.Abstracts;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-@Setter
-@Data
 @NoArgsConstructor
 public abstract class AUsers {
 
     @JsonProperty("email")
-    private String email;
+    protected String email;
 
     @JsonProperty("password")
-    private String password;
+    protected String password;
 
     @JsonProperty("major")
-    private String major;
+    protected String major;
 
     @JsonProperty("profilePicture")
-    private String profilePicture;
+    protected String profilePicture;
 
-    @JsonProperty("role") // Added role field
-    private String role;
+    @JsonProperty("role")
+    protected String role;
 
     public AUsers(String email, String password, String major, String profilePicture, String role) {
         this.email = email;
         this.password = password;
         this.major = major;
         this.profilePicture = profilePicture;
-        this.role = role; // Added role field
+        this.role = role;
     }
 
     // Manual Getters
@@ -50,11 +46,11 @@ public abstract class AUsers {
         return profilePicture;
     }
 
-    public String getRole() { // Added role getter
+    public String getRole() {
         return role;
     }
 
-    // Manual Setters (if needed, though @Setter already provides them)
+    // Manual Setters
     public void setEmail(String email) {
         this.email = email;
     }
@@ -71,7 +67,7 @@ public abstract class AUsers {
         this.profilePicture = profilePicture;
     }
 
-    public void setRole(String role) { // Added role setter
+    public void setRole(String role) {
         this.role = role;
     }
 }
