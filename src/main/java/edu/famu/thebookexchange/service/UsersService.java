@@ -156,8 +156,29 @@ public class UsersService {
             throw e;
         }
     }
-    public DocumentSnapshot getUserDocumentSnapshot(String userID) throws ExecutionException, InterruptedException, TimeoutException{
+
+    public DocumentSnapshot getUserDocumentSnapshot(String userID) throws ExecutionException, InterruptedException, TimeoutException {
         DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userID);
         return userRef.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+    }
+
+    public boolean setUserActivation(String userId, boolean active) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Setting activation for user with userId: {} to: {}", userId, active);
+        try {
+            DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
+            DocumentSnapshot document = userRef.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+            if (document.exists()) {
+                userRef.update("isActive", active).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                logger.info("User activation set to {} for ID: {}", active, userId);
+                return active;
+            } else {
+                logger.warn("User not found for activation change with ID: {}", userId);
+                return false;
+            }
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error setting user activation: {}", userId, e);
+            throw e;
+        }
     }
 }

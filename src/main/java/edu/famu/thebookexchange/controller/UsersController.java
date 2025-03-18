@@ -98,15 +98,27 @@ public class UsersController {
         }
     }
 
-    @PutMapping("/{userId}/toggleActivation")
-    public ResponseEntity<ApiResponse<Boolean>> toggleUserActivation(@PathVariable String userId) {
-        logger.info("Received PUT request to /Users/{}/toggleActivation", userId);
+    @PutMapping("/{userId}/activate")
+    public ResponseEntity<ApiResponse<Boolean>> activateUser(@PathVariable String userId) {
+        logger.info("Received PUT request to /Users/{}/activate", userId);
         try {
-            boolean newStatus = userService.toggleUserActivation(userId);
-            return ResponseEntity.ok(new ApiResponse<>(true, "User activation toggled", newStatus, null));
+            boolean activated = userService.setUserActivation(userId, true);
+            return ResponseEntity.ok(new ApiResponse<>(true, "User activated", activated, null));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error toggling user activation: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error toggling user activation", null, e.getMessage()));
+            logger.error("Error activating user: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error activating user", null, e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{userId}/deactivate")
+    public ResponseEntity<ApiResponse<Boolean>> deactivateUser(@PathVariable String userId) {
+        logger.info("Received PUT request to /Users/{}/deactivate", userId);
+        try {
+            boolean deactivated = userService.setUserActivation(userId, false);
+            return ResponseEntity.ok(new ApiResponse<>(true, "User deactivated", deactivated, null));
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error deactivating user: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error deactivating user", null, e.getMessage()));
         }
     }
 }

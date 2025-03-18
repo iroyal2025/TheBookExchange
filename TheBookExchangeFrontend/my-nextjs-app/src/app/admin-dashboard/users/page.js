@@ -103,13 +103,26 @@ export default function ManageUsers() {
         }
     };
 
-    const handleToggleActivation = async (user) => {
+    const handleActivate = async (user) => {
         try {
-            const endpoint = user.isActive ? `/Users/${user.userId}/deactivate` : `/Users/${user.userId}/activate`;
-            const response = await axios.put(`http://localhost:8080${endpoint}`);
+            const response = await axios.put(`http://localhost:8080/Users/${user.userId}/activate`);
             if (response.data.success) {
                 fetchUsers();
-                setMessage(`User ${user.isActive ? 'deactivated' : 'activated'} successfully.`);
+                setMessage("User activation successful.");
+            } else {
+                setError(response.data.message);
+            }
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const handleDeactivate = async (user) => {
+        try {
+            const response = await axios.put(`http://localhost:8080/Users/${user.userId}/deactivate`);
+            if (response.data.success) {
+                fetchUsers();
+                setMessage("User deactivation successful.");
             } else {
                 setError(response.data.message);
             }
@@ -135,6 +148,51 @@ export default function ManageUsers() {
                 {isAdding && (
                     <div className="mb-4">
                         <h3 className="text-lg font-semibold mb-2">Add New User</h3>
+                        <div className="mb-2">
+                            <label className="block text-sm font-medium text-gray-700">Email</label>
+                            <input
+                                type="email"
+                                value={newUser.email}
+                                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <div className="mb-2">
+                            <label className="block text-sm font-medium text-gray-700">Password</label>
+                            <input
+                                type="password"
+                                value={newUser.password}
+                                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <div className="mb-2">
+                            <label className="block text-sm font-medium text-gray-700">Role</label>
+                            <input
+                                type="text"
+                                value={newUser.role}
+                                onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <div className="mb-2">
+                            <label className="block text-sm font-medium text-gray-700">Major</label>
+                            <input
+                                type="text"
+                                value={newUser.major}
+                                onChange={(e) => setNewUser({ ...newUser, major: e.target.value })}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <div className="mb-2">
+                            <label className="block text-sm font-medium text-gray-700">Profile Picture URL</label>
+                            <input
+                                type="text"
+                                value={newUser.profilePicture}
+                                onChange={(e) => setNewUser({ ...newUser, profilePicture: e.target.value })}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            />
+                        </div>
                         <div className="flex justify-end">
                             <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-2" onClick={handleAddUser}>Add</button>
                             <button className="bg-gray-400 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsAdding(false)}>Cancel</button>
@@ -159,9 +217,8 @@ export default function ManageUsers() {
                                 <td className="p-2">
                                     <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mr-2" onClick={() => handleEdit(user)}>Edit</button>
                                     <button className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded mr-2" onClick={() => handleDelete(user)}>Delete</button>
-                                    <button className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded" onClick={() => handleToggleActivation(user)}>
-                                        {user.isActive ? 'Deactivate' : 'Activate'}
-                                    </button>
+                                    <button className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mr-2" onClick={() => handleActivate(user)}>Activate</button>
+                                    <button className="bg-orange-500 hover:bg-orange-700 text-white font-bold py-1 px-2 rounded mr-2" onClick={() => handleDeactivate(user)}>Deactivate</button>
                                 </td>
                             </tr>
                         ))}
@@ -172,6 +229,42 @@ export default function ManageUsers() {
                 {isEditing && editingUser && (
                     <div className="mt-4">
                         <h3 className="text-lg font-semibold mb-2">Edit User</h3>
+                        <div className="mb-2">
+                            <label className="block text-sm font-medium text-gray-700">Email</label>
+                            <input
+                                type="email"
+                                value={editingUser.email}
+                                onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <div className="mb-2">
+                            <label className="block text-sm font-medium text-gray-700">Role</label>
+                            <input
+                                type="text"
+                                value={editingUser.role}
+                                onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value })}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <div className="mb-2">
+                            <label className="block text-sm font-medium text-gray-700">Major</label>
+                            <input
+                                type="text"
+                                value={editingUser.major}
+                                onChange={(e) => setEditingUser({ ...editingUser, major: e.target.value })}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <div className="mb-2">
+                            <label className="block text-sm font-medium text-gray-700">Profile Picture URL</label>
+                            <input
+                                type="text"
+                                value={editingUser.profilePicture}
+                                onChange={(e) => setEditingUser({ ...editingUser, profilePicture: e.target.value })}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            />
+                        </div>
                         <div className="flex justify-end">
                             <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mr-2" onClick={handleUpdateUser}>Update</button>
                             <button className="bg-gray-400 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded" onClick={() => setIsEditing(false)}>Cancel</button>
