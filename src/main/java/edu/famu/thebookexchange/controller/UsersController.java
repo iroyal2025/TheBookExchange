@@ -121,4 +121,28 @@ public class UsersController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error deactivating user", null, e.getMessage()));
         }
     }
+
+    @GetMapping("/{userId}/balance")
+    public ResponseEntity<ApiResponse<Double>> getUserBalance(@PathVariable String userId) {
+        logger.info("Received GET request to /Users/{}/balance", userId);
+        try {
+            double balance = userService.getUserBalance(userId);
+            return ResponseEntity.ok(new ApiResponse<>(true, "User balance retrieved", balance, null));
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error retrieving user balance: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving user balance", null, e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{userId}/balance")
+    public ResponseEntity<ApiResponse<Boolean>> updateUserBalance(@PathVariable String userId, @RequestParam double balance) {
+        logger.info("Received PUT request to /Users/{}/balance with balance: {}", userId, balance);
+        try {
+            boolean updated = userService.updateUserBalance(userId, balance);
+            return ResponseEntity.ok(new ApiResponse<>(true, "User balance updated", updated, null));
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error updating user balance: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error updating user balance", null, e.getMessage()));
+        }
+    }
 }

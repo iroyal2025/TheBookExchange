@@ -1,3 +1,4 @@
+// UsersService.java
 package edu.famu.thebookexchange.service;
 
 import com.google.api.core.ApiFuture;
@@ -48,7 +49,8 @@ public class UsersService {
                         document.getString("profilePicture"),
                         document.getString("role"),
                         userId,
-                        document.getBoolean("isActive") != null ? document.getBoolean("isActive") : true
+                        document.getBoolean("isActive") != null ? document.getBoolean("isActive") : true,
+                        document.getDouble("balance") != null ? document.getDouble("balance") : 0.0
                 );
                 users.add(user);
             }
@@ -67,6 +69,7 @@ public class UsersService {
         userData.put("profilePicture", user.getProfilePicture());
         userData.put("role", user.getRole());
         userData.put("isActive", true);
+        userData.put("balance", 0.0); // Initialize balance to 0
 
         ApiFuture<DocumentReference> writeResult = firestore.collection(USERS_COLLECTION).add(userData);
         DocumentReference rs = writeResult.get();
@@ -120,6 +123,7 @@ public class UsersService {
             updatedUserData.put("major", updatedUser.getMajor());
             updatedUserData.put("profilePicture", updatedUser.getProfilePicture());
             updatedUserData.put("role", updatedUser.getRole());
+            updatedUserData.put("balance", updatedUser.getBalance());
 
             if (updatedUser.getPassword() != null && !updatedUser.getPassword().isEmpty()) {
                 updatedUserData.put("password", passwordEncoder.encode(updatedUser.getPassword()));
@@ -178,6 +182,27 @@ public class UsersService {
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error setting user activation: {}", userId, e);
+            throw e;
+        }
+    }
+
+    public double getUserBalance(String userId) throws InterruptedException, ExecutionException, TimeoutException {
+        DocumentSnapshot document = getUserDocumentSnapshot(userId);
+        if (document.exists()) {
+            Double balance = document.getDouble("balance");
+            return balance != null ? balance : 0.0;
+        } else {
+            return 0.0;
+        }
+    }
+
+    public boolean updateUserBalance(String userId, double newBalance) throws InterruptedException, ExecutionException, TimeoutException {
+        try {
+            DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
+            userRef.update("balance", newBalance).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+            return true;
+        } catch (Exception e) {
+            logger.error("Error updating user balance: {}", e.getMessage(), e);
             throw e;
         }
     }
