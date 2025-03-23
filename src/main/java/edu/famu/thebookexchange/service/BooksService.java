@@ -1,14 +1,17 @@
 package edu.famu.thebookexchange.service;
 
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.*;
+import com.google.firebase.cloud.FirestoreClient;
 import edu.famu.thebookexchange.model.Rest.RestBooks;
-import edu.famu.thebookexchange.repository.BooksRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -17,63 +20,252 @@ import java.util.concurrent.TimeoutException;
 public class BooksService {
 
     private static final Logger logger = LoggerFactory.getLogger(BooksService.class);
+    private Firestore firestore;
 
-    @Autowired
-    private BooksRepository booksRepository;
+    private static final String BOOKS_COLLECTION = "Books";
+    private static final long FIRESTORE_TIMEOUT = 5;
+
+    public BooksService() {
+        this.firestore = FirestoreClient.getFirestore();
+    }
 
     public List<RestBooks> getAllBooks() throws InterruptedException, ExecutionException, TimeoutException {
-        logger.info("Retrieving all books from database...");
-        CompletableFuture<List<RestBooks>> future = booksRepository.findAll();
-        List<RestBooks> books = future.get(10, TimeUnit.SECONDS);
-        logger.info("Books retrieved: {}", books);
+        CollectionReference booksCollection = firestore.collection(BOOKS_COLLECTION);
+        ApiFuture<QuerySnapshot> querySnapshot = booksCollection.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
+
+        List<RestBooks> books = new ArrayList<>();
+
+        for (QueryDocumentSnapshot document : documents) {
+            if (document.exists()) {
+                String bookId = document.getId();
+                List<String> ownedBy = (List<String>) document.get("ownedBy");
+                if (ownedBy == null) {
+                    ownedBy = new ArrayList<>();
+                }
+
+                RestBooks book = new RestBooks(
+                        document.getString("title"),
+                        document.getString("author"),
+                        document.getString("edition"),
+                        document.getString("ISBN"),
+                        document.getString("condition"),
+                        document.getString("description"),
+                        document.getDouble("price") != null ? document.getDouble("price") : 0.0,
+                        document.getBoolean("isDigital") != null ? document.getBoolean("isDigital") : false,
+                        document.getString("digitalCopyPath"),
+                        bookId,
+                        ownedBy,
+                        document.get("userId", DocumentReference.class),
+                        document.get("courseId", DocumentReference.class)
+                );
+                books.add(book);
+            }
+        }
+
         return books;
     }
 
     public String addBook(RestBooks book) throws InterruptedException, ExecutionException {
-        logger.info("Adding book to database: {}", book);
-        CompletableFuture<String> future = booksRepository.save(book);
-        String bookId = future.get();
-        logger.info("Book added with ID: {}", bookId);
-        return bookId;
+        logger.info("Adding book with details: {}", book);
+
+        Map<String, Object> bookData = new HashMap<>();
+        bookData.put("title", book.getTitle());
+        bookData.put("author", book.getAuthor());
+        bookData.put("edition", book.getEdition());
+        bookData.put("ISBN", book.getISBN());
+        bookData.put("condition", book.getCondition());
+        bookData.put("description", book.getDescription());
+        bookData.put("price", book.getPrice());
+        bookData.put("isDigital", book.isDigital());
+        bookData.put("digitalCopyPath", book.getDigitalCopyPath());
+        bookData.put("ownedBy", book.getOwnedBy());
+        bookData.put("userId", book.getUserId());
+        bookData.put("courseId", book.getCourseId());
+
+        ApiFuture<DocumentReference> writeResult = firestore.collection(BOOKS_COLLECTION).add(bookData);
+        DocumentReference rs = writeResult.get();
+        logger.info("Book added with ID: {}", rs.getId());
+        return rs.getId();
     }
 
-    public boolean deleteBookByTitle(String title) throws ExecutionException, InterruptedException, TimeoutException {
-        logger.info("Deleting book by title: {}", title);
-        CompletableFuture<Boolean> future = booksRepository.deleteByTitle(title);
-        boolean deleted = future.get(10, TimeUnit.SECONDS);
-        logger.info("Book deleted: {}", deleted);
-        return deleted;
+    public boolean deleteBook(String bookId) throws ExecutionException, InterruptedException, TimeoutException {
+        logger.info("Deleting book with bookId: {}", bookId);
+        try {
+            ApiFuture<WriteResult> writeResult = firestore.collection(BOOKS_COLLECTION).document(bookId).delete();
+            writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+            logger.info("Book deleted successfully with ID: {}", bookId);
+            return true;
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error deleting book with bookId: {}", bookId, e);
+            throw e;
+        }
     }
 
     public String updateBook(String bookId, RestBooks updatedBook) throws InterruptedException, ExecutionException, TimeoutException {
-        logger.info("Updating book with ID: {}, Data: {}", bookId, updatedBook);
-        CompletableFuture<String> future = booksRepository.update(bookId, updatedBook);
-        String updateResult = future.get(10, TimeUnit.SECONDS);
-        logger.info("Book update result: {}", updateResult);
-        return updateResult;
+        logger.info("Updating book with bookId: {}", bookId);
+        try {
+            DocumentReference bookRef = firestore.collection(BOOKS_COLLECTION).document(bookId);
+
+            Map<String, Object> updatedBookData = new HashMap<>();
+            updatedBookData.put("title", updatedBook.getTitle());
+            updatedBookData.put("author", updatedBook.getAuthor());
+            updatedBookData.put("edition", updatedBook.getEdition());
+            updatedBookData.put("ISBN", updatedBook.getISBN());
+            updatedBookData.put("condition", updatedBook.getCondition());
+            updatedBookData.put("description", updatedBook.getDescription());
+            updatedBookData.put("price", updatedBook.getPrice());
+            updatedBookData.put("isDigital", updatedBook.isDigital());
+            updatedBookData.put("digitalCopyPath", updatedBook.getDigitalCopyPath());
+            updatedBookData.put("ownedBy", updatedBook.getOwnedBy());
+            updatedBookData.put("userId", updatedBook.getUserId());
+            updatedBookData.put("courseId", updatedBook.getCourseId());
+
+            ApiFuture<WriteResult> writeResult = bookRef.update(updatedBookData);
+            logger.info("Book updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
+
+            return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
+        } catch (Exception e) {
+            logger.error("Error updating book: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+    public DocumentSnapshot getBookDocumentSnapshot(String bookId) throws ExecutionException, InterruptedException, TimeoutException {
+        DocumentReference bookRef = firestore.collection(BOOKS_COLLECTION).document(bookId);
+        return bookRef.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
     }
 
-    public boolean purchaseBook(String bookId, String userId) throws InterruptedException, ExecutionException, TimeoutException {
-        logger.info("Purchasing book with ID: {}, User ID: {}", bookId, userId);
-        CompletableFuture<Boolean> future = booksRepository.purchaseBook(bookId, userId);
-        boolean purchaseResult = future.get(10, TimeUnit.SECONDS);
-        logger.info("Book purchase result: {}", purchaseResult);
-        return purchaseResult;
-    }
+    public double purchaseBook(String bookId, String email) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Purchasing book with bookId: {} for email: {}", bookId, email);
 
-    public List<RestBooks> findBooksOwnedByUser(String userId) throws InterruptedException, ExecutionException, TimeoutException {
-        logger.info("Finding books owned by user with ID: {}", userId);
-        CompletableFuture<List<RestBooks>> future = booksRepository.findBooksOwnedByUser(userId);
-        List<RestBooks> ownedBooks = future.get(10, TimeUnit.SECONDS);
-        logger.info("Books owned by user: {}", ownedBooks);
-        return ownedBooks;
+        try {
+            return firestore.runTransaction(transaction -> {
+                DocumentSnapshot bookDoc = transaction.get(firestore.collection(BOOKS_COLLECTION).document(bookId)).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                if (!bookDoc.exists()) {
+                    logger.warn("Book not found with ID: {}", bookId);
+                    return -1.0; // Indicate failure
+                }
+
+                // Find user document using email
+                QuerySnapshot userQuery = firestore.collection("Users").whereEqualTo("email", email).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                if (userQuery.isEmpty()) {
+                    logger.warn("User not found with email: {}", email);
+                    return -1.0; // Indicate failure
+                }
+                DocumentSnapshot userDoc = userQuery.getDocuments().get(0);
+
+                double bookPrice = bookDoc.getDouble("price");
+                double userBalance = userDoc.getDouble("balance");
+
+                if (userBalance < bookPrice) {
+                    logger.warn("Insufficient funds for user: {}", email);
+                    return -1.0; // Indicate failure
+                }
+
+                // Update user balance
+                double newBalance = userBalance - bookPrice;
+                transaction.update(firestore.collection("Users").document(userDoc.getId()), "balance", newBalance);
+                logger.info("User balance updated for user: {}", email);
+
+                // Update book ownership
+                List<String> ownedBy = (List<String>) bookDoc.get("ownedBy");
+                if (ownedBy == null) {
+                    ownedBy = new ArrayList<>();
+                }
+                ownedBy.add(email);
+                transaction.update(firestore.collection(BOOKS_COLLECTION).document(bookId), "ownedBy", ownedBy);
+                logger.info("Book ownership updated for book: {}", bookId);
+
+                return newBalance; // Indicate success.
+            }).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS); // Retrieve Double from ApiFuture
+        } catch (Exception e) {
+            logger.error("Error purchasing book: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     public RestBooks getBookById(String bookId) throws InterruptedException, ExecutionException, TimeoutException {
-        logger.info("Retrieving book by ID: {}", bookId);
-        CompletableFuture<RestBooks> future = booksRepository.findById(bookId);
-        RestBooks book = future.get(10, TimeUnit.SECONDS);
-        logger.info("Book retrieved: {}", book);
-        return book;
+        DocumentSnapshot document = getBookDocumentSnapshot(bookId);
+        if (document.exists()) {
+            return new RestBooks(
+                    document.getString("title"),
+                    document.getString("author"),
+                    document.getString("edition"),
+                    document.getString("ISBN"),
+                    document.getString("condition"),
+                    document.getString("description"),
+                    document.getDouble("price") != null ? document.getDouble("price") : 0.0,
+                    document.getBoolean("isDigital") != null ? document.getBoolean("isDigital") : false,
+                    document.getString("digitalCopyPath"),
+                    bookId,
+                    (List<String>) document.get("ownedBy"),
+                    document.get("userId", DocumentReference.class),
+                    document.get("courseId", DocumentReference.class)
+            );
+        } else {
+            return null;
+        }
     }
+
+    public List<RestBooks> findBooksOwnedByUserEmail(String email) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Finding books owned by email: {}", email);
+        CollectionReference booksCollection = firestore.collection(BOOKS_COLLECTION);
+        Query query = booksCollection.whereArrayContains("ownedBy", email);
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
+
+        logger.debug("Number of documents retrieved: {}", documents.size()); // Log the number of documents
+
+        List<RestBooks> ownedBooks = new ArrayList<>();
+
+        for (QueryDocumentSnapshot document : documents) {
+            if (document.exists()) {
+                logger.debug("Document ID: {}, Data: {}", document.getId(), document.getData()); // Log document ID and data
+
+                String bookId = document.getId();
+                RestBooks book = new RestBooks(
+                        document.getString("title"),
+                        document.getString("author"),
+                        document.getString("edition"),
+                        document.getString("ISBN"),
+                        document.getString("condition"),
+                        document.getString("description"),
+                        document.getDouble("price") != null ? document.getDouble("price") : 0.0,
+                        document.getBoolean("isDigital") != null ? document.getBoolean("isDigital") : false,
+                        document.getString("digitalCopyPath"),
+                        bookId,
+                        (List<String>) document.get("ownedBy"),
+                        document.get("userId", DocumentReference.class),
+                        document.get("courseId", DocumentReference.class)
+                );
+                ownedBooks.add(book);
+            }
+        }
+
+        return ownedBooks;
+    }
+
+    public boolean deleteBookByTitle(String title) throws ExecutionException, InterruptedException, TimeoutException {
+        logger.info("Deleting book with title: {}", title);
+        try {
+            Query query = firestore.collection(BOOKS_COLLECTION).whereEqualTo("title", title);
+            ApiFuture<QuerySnapshot> querySnapshot = query.get();
+            List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
+
+            if (!documents.isEmpty()) {
+                for (QueryDocumentSnapshot document : documents) {
+                    firestore.collection(BOOKS_COLLECTION).document(document.getId()).delete().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                    logger.info("Book deleted successfully with ID: {} and title: {}", document.getId(), title);
+                }
+                return true;
+            } else {
+                logger.warn("Book not found for deletion with title: {}", title);
+                return false;
+            }
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error deleting book with title: {}", title, e);
+            throw e;
+        }
+    }
+
 }

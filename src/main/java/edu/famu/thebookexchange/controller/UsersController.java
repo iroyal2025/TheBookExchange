@@ -21,8 +21,12 @@ public class UsersController {
 
     private static final Logger logger = LoggerFactory.getLogger(UsersController.class);
 
-    @Autowired
-    private UsersService userService;
+    private final UsersService userService; // Declare instance variable
+
+    @Autowired // Inject UsersService via constructor
+    public UsersController(UsersService userService) {
+        this.userService = userService;
+    }
 
     @GetMapping("/")
     public ResponseEntity<ApiResponse<List<RestUsers>>> getAllUsers() {
@@ -122,11 +126,11 @@ public class UsersController {
         }
     }
 
-    @GetMapping("/{userId}/balance")
-    public ResponseEntity<ApiResponse<Double>> getUserBalance(@PathVariable String userId) {
-        logger.info("Received GET request to /Users/{}/balance", userId);
+    @GetMapping("/balance/email/{email}")
+    public ResponseEntity<ApiResponse<Double>> getUserBalanceByEmail(@PathVariable String email) {
+        logger.info("Received GET request to /Users/balance/email/{}", email);
         try {
-            double balance = userService.getUserBalance(userId);
+            double balance = userService.getUserBalanceByEmail(email);
             return ResponseEntity.ok(new ApiResponse<>(true, "User balance retrieved", balance, null));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error retrieving user balance: {}", e.getMessage(), e);
@@ -134,15 +138,57 @@ public class UsersController {
         }
     }
 
-    @PutMapping("/{userId}/balance")
-    public ResponseEntity<ApiResponse<Boolean>> updateUserBalance(@PathVariable String userId, @RequestParam double balance) {
-        logger.info("Received PUT request to /Users/{}/balance with balance: {}", userId, balance);
+    @PutMapping("/balance/email/{email}")
+    public ResponseEntity<ApiResponse<Boolean>> updateUserBalanceByEmail(@PathVariable String email, @RequestParam double balance) {
+        logger.info("Received PUT request to /Users/balance/email/{} with balance: {}", email, balance);
         try {
-            boolean updated = userService.updateUserBalance(userId, balance);
-            return ResponseEntity.ok(new ApiResponse<>(true, "User balance updated", updated, null));
+            userService.updateUserBalanceByEmail(email, balance);
+            return ResponseEntity.ok(new ApiResponse<>(true, "User balance updated", true, null));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error updating user balance: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error updating user balance", null, e.getMessage()));
         }
     }
+
+    @PostMapping("/students/email/{email}/student/{addStudentEmail}")
+    public ResponseEntity<ApiResponse<String>> addStudentToParent(
+            @PathVariable String email,
+            @PathVariable String addStudentEmail) {
+        logger.info("Received POST request to /Users/students/email/{}/student/{}", email, addStudentEmail);
+        try {
+            userService.addStudentToParent(email, addStudentEmail);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Student added successfully", null, null));
+        } catch (Exception e) {
+            logger.error("Error adding student: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error adding student", null, e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/students/email/{parentEmail}/student/{studentEmail}")
+    public ResponseEntity<ApiResponse<String>> removeStudentFromParent(
+            @PathVariable String parentEmail,
+            @PathVariable String studentEmail) {
+        logger.info("Received DELETE request to /Users/students/email/{}/student/{}", parentEmail, studentEmail);
+        try {
+            userService.removeStudentFromParent(parentEmail, studentEmail);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Student removed successfully", null, null));
+        } catch (Exception e) {
+            logger.error("Error removing student: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error removing student", null, e.getMessage()));
+        }
+    }
+
+    @GetMapping("/students/email/{email}")
+    public ResponseEntity<ApiResponse<List<RestUsers>>> getStudentsByParentEmail(@PathVariable String email) {
+        try {
+            List<RestUsers> students = userService.getStudentsByParentEmail(email);
+            ApiResponse<List<RestUsers>> response = new ApiResponse<>(true, "Students retrieved successfully", students, null);
+            return ResponseEntity.ok(response);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            ApiResponse<List<RestUsers>> errorResponse = new ApiResponse<>(false, "Error retrieving students: " + e.getMessage(), null, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+
 }

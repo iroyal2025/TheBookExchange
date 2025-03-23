@@ -46,14 +46,8 @@ public class BooksRepositoryImpl implements BooksRepository {
                     book.setDigital(document.getBoolean("is_digital") != null ? document.getBoolean("is_digital") : false);
                     book.setDigitalCopyPath(document.getString("digital_copy_path"));
 
-                    DocumentReference userIdRef = (DocumentReference) document.get("userId");
-                    DocumentReference courseIdRef = (DocumentReference) document.get("courseId");
-                    if (userIdRef != null) {
-                        book.setUserId(userIdRef.getId());
-                    }
-                    if (courseIdRef != null) {
-                        book.setCourseId(courseIdRef.getId());
-                    }
+                    book.setUserId(document.getString("userId")); // Store as String
+                    book.setCourseId(document.getString("courseId")); // Store as String
 
                     List<String> ownedBy = (List<String>) document.get("ownedBy");
                     book.setOwnedBy(ownedBy);
@@ -83,11 +77,8 @@ public class BooksRepositoryImpl implements BooksRepository {
                 bookData.put("is_digital", book.isDigital());
                 bookData.put("digital_copy_path", book.getDigitalCopyPath());
 
-                DocumentReference userIdRef = firestore.collection("Users").document(book.getUserId());
-                bookData.put("userId", userIdRef);
-
-                DocumentReference courseIdRef = firestore.collection("Course").document(book.getCourseId());
-                bookData.put("courseId", courseIdRef);
+                bookData.put("userId", book.getUserId()); // Store as String
+                bookData.put("courseId", book.getCourseId()); // Store as String
 
                 bookData.put("ownedBy", book.getOwnedBy());
 
@@ -141,11 +132,8 @@ public class BooksRepositoryImpl implements BooksRepository {
                 updatedBookData.put("is_digital", updatedBook.isDigital());
                 updatedBookData.put("digital_copy_path", updatedBook.getDigitalCopyPath());
 
-                DocumentReference userIdRef = firestore.collection("Users").document(updatedBook.getUserId());
-                updatedBookData.put("userId", userIdRef);
-
-                DocumentReference courseIdRef = firestore.collection("Course").document(updatedBook.getCourseId());
-                updatedBookData.put("courseId", courseIdRef);
+                updatedBookData.put("userId", updatedBook.getUserId()); // Store as String
+                updatedBookData.put("courseId", updatedBook.getCourseId()); // Store as String
 
                 updatedBookData.put("ownedBy", updatedBook.getOwnedBy());
 
@@ -186,6 +174,7 @@ public class BooksRepositoryImpl implements BooksRepository {
         });
     }
 
+
     @Override
     public CompletableFuture<List<RestBooks>> findBooksOwnedByUser(String userId) {
         return CompletableFuture.supplyAsync(() -> {
@@ -208,14 +197,8 @@ public class BooksRepositoryImpl implements BooksRepository {
                     book.setDigital(document.getBoolean("is_digital") != null ? document.getBoolean("is_digital") : false);
                     book.setDigitalCopyPath(document.getString("digital_copy_path"));
 
-                    DocumentReference userIdRef = (DocumentReference) document.get("userId");
-                    DocumentReference courseIdRef = (DocumentReference) document.get("courseId");
-                    if (userIdRef != null) {
-                        book.setUserId(userIdRef.getId());
-                    }
-                    if (courseIdRef != null) {
-                        book.setCourseId(courseIdRef.getId());
-                    }
+                    book.setUserId(document.getString("userId")); // Store as String
+                    book.setCourseId(document.getString("courseId")); // Store as String
 
                     List<String> ownedBy = (List<String>) document.get("ownedBy");
                     book.setOwnedBy(ownedBy);
@@ -249,14 +232,8 @@ public class BooksRepositoryImpl implements BooksRepository {
                     book.setDigital(document.getBoolean("is_digital") != null ? document.getBoolean("is_digital") : false);
                     book.setDigitalCopyPath(document.getString("digital_copy_path"));
 
-                    DocumentReference userIdRef = (DocumentReference) document.get("userId");
-                    DocumentReference courseIdRef = (DocumentReference) document.get("courseId");
-                    if (userIdRef != null) {
-                        book.setUserId(userIdRef.getId());
-                    }
-                    if (courseIdRef != null) {
-                        book.setCourseId(courseIdRef.getId());
-                    }
+                    book.setUserId(document.getString("userId")); // Store as String
+                    book.setCourseId(document.getString("courseId")); // Store as String
 
                     List<String> ownedBy = (List<String>) document.get("ownedBy");
                     book.setOwnedBy(ownedBy);

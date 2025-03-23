@@ -1,9 +1,10 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from '@/lib/axiosConfig';
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { useFirebaseAuth } from './firebaseAuth';
+import { AuthContext } from '../../../context/AuthContext';
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 export default function BrowseTextbooks() {
     const [books, setBooks] = useState([]);
@@ -13,34 +14,35 @@ export default function BrowseTextbooks() {
     const [purchaseError, setPurchaseError] = useState(null);
     const [message, setMessage] = useState(null);
     const [userBalance, setUserBalance] = useState(0);
-
-    const { user, loading: authLoading } = useFirebaseAuth();
+    const { currentUser } = useContext(AuthContext);
+    const [renderTrigger, setRenderTrigger] = useState(0); // Force re-render
+    const router = useRouter(); // Initialize router
 
     useEffect(() => {
         const fetchBooks = async () => {
+            setLoading(true);
+            setError(null);
             try {
                 const response = await axios.get('http://localhost:8080/Books/');
-                if (response.data && response.data.success && Array.isArray(response.data.data)) {
+                console.log("BrowseTextbooks: fetchBooks response:", response);
+                if (response.data.success) {
                     setBooks(response.data.data);
-                    setLoading(false);
                 } else {
-                    setError(response.data.message || "Invalid API response");
-                    setLoading(false);
+                    setError(response.data.message);
                 }
             } catch (err) {
                 setError(err.message);
+            } finally {
                 setLoading(false);
             }
         };
 
         const fetchUserBalance = async () => {
-            if (user) {
-                console.log("useEffect: user =", user);
-                console.log("useEffect: typeof user =", typeof user);
-                console.log("useEffect: Boolean(user) =", Boolean(user));
+            if (currentUser?.email) {
                 try {
-                    const response = await axios.get(`http://localhost:8080/users/${user.uid}/balance`);
-                    if (response.data && response.data.success) {
+                    const response = await axios.get(`http://localhost:8080/Users/balance/email/${currentUser.email}`);
+                    console.log("BrowseTextbooks: fetchUserBalance response:", response);
+                    if (response.data.success) {
                         setUserBalance(response.data.data);
                     } else {
                         console.error('Failed to fetch user balance:', response.data.message);
@@ -51,12 +53,13 @@ export default function BrowseTextbooks() {
             }
         };
 
-        if (!authLoading) {
-            console.log("authLoading state: ", authLoading);
+        if (currentUser?.email) {
             fetchBooks();
             fetchUserBalance();
         }
-    }, [authLoading, user]);
+        console.log("BrowseTextbooks, current user: ", currentUser);
+        setRenderTrigger(prev => prev + 1); // Force re-render
+    }, [currentUser]); // Added currentUser to dependency array
 
     useEffect(() => {
         if (message) {
@@ -67,54 +70,51 @@ export default function BrowseTextbooks() {
         }
     }, [message]);
 
-    const handleBuy = async (bookId, price) => {
+    const handleBuy = async (bookId, price, event) => {
+        if (event) {
+            event.stopPropagation();
+        }
         setPurchaseLoading(true);
         setPurchaseError(null);
         try {
-            if (user) {
+            if (currentUser?.email) {
                 if (userBalance >= price) {
-                    const userId = user.uid;
-                    const response = await axios.put(`http://localhost:8080/Books/${bookId}/purchase/${userId}`);
-
+                    const url = `http://localhost:8080/Books/${bookId}/purchase/email/${currentUser.email}`; // Corrected URL
+                    const response = await axios.put(url);
+                    console.log("BrowseTextbooks: handleBuy response:", response);
                     if (response.data.success) {
                         setMessage(response.data.message);
-                        fetchBooks();
-                        fetchUserBalance();
+                        setUserBalance(response.data.data); // Update balance from purchase response
                     } else {
                         setPurchaseError(response.data.message);
                     }
                 } else {
-                    setPurchaseError('Insufficient funds.');
+                    setPurchaseError('Insufficient funds.'); // Set purchaseError here
                 }
             } else {
                 setPurchaseError('An error occurred. Please refresh and try again.');
             }
         } catch (err) {
             console.error('Purchase error:', err);
-            if (err.response && err.response.data && err.response.data.message) {
-                setPurchaseError(err.response.data.message);
-            } else {
-                setPurchaseError('An error occurred during purchase.');
-            }
+            setPurchaseError(err.message || 'An error occurred during purchase.');
         } finally {
             setPurchaseLoading(false);
         }
     };
 
-    if (loading || authLoading) return <div className="p-4 flex justify-center items-center"><Spinner /></div>;
-    if (error) return <div className="p-4 text-red-600">Error loading textbooks: {error}</div>;
+    const handleBackToDashboard = () => {
+        router.push('/student-dashboard'); // Navigate back to the student dashboard
+    };
 
-    console.log("Rendering: user =", user);
-    console.log("Rendering: typeof user =", typeof user);
-    console.log("Rendering: Boolean(user) =", Boolean(user));
-    console.log("The return statement is running");
+    if (loading) return <div className="p-4 flex justify-center items-center"><Spinner /></div>;
+    if (error) return <div className="p-4 text-red-600">Error loading textbooks: {error}</div>;
 
     return (
         <div className="min-h-screen bg-gradient-to-r from-orange-500 to-green-500 flex flex-col items-center justify-center p-4">
             <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-4xl">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-semibold text-orange-600">Browse Textbooks</h2>
-                    {user && <p style={{color: 'red', fontSize: '20px'}}>Your Balance: $350</p>}
+                    {currentUser?.email && <p style={{color: 'red', fontSize: '20px'}}>Your Balance: ${userBalance}</p>}
                 </div>
 
                 {message && (
@@ -141,8 +141,8 @@ export default function BrowseTextbooks() {
                                 <td className="p-2">${book.price}</td>
                                 <td className="p-2">
                                     <Button
-                                        onClick={() => handleBuy(book.bookId, book.price)}
-                                        disabled={purchaseLoading || !user}
+                                        onClick={(event) => handleBuy(book.bookId, book.price, event)}
+                                        disabled={purchaseLoading || !currentUser?.email}
                                     >
                                         {purchaseLoading ? <Spinner size="sm" /> : "Buy"}
                                     </Button>
@@ -152,6 +152,13 @@ export default function BrowseTextbooks() {
                         ))}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Back to Dashboard Button */}
+                <div className="mt-8">
+                    <Button onClick={handleBackToDashboard} variant="outline">
+                        Back to Dashboard
+                    </Button>
                 </div>
             </div>
         </div>

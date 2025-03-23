@@ -1,3 +1,4 @@
+// AuthController.java
 package edu.famu.thebookexchange.controller;
 
 import edu.famu.thebookexchange.service.FirebaseUserDetailsService;
@@ -37,7 +38,7 @@ public class AuthController {
     @PostMapping("/verify")
     public ResponseEntity<?> verify(@RequestParam(value = "email", required = true) String email,
                                     @RequestParam(value = "password", required = true) String password) {
-        logger.info("Received Email (Insecure): {}", email); // Log received email
+        logger.info("Received Email (Insecure): {}", email);
 
         try {
             Query query = firebaseUserDetailsService.getFirestore().collection(USERS_COLLECTION).whereEqualTo("email", email);
@@ -51,21 +52,24 @@ public class AuthController {
                     logger.warn("User account is disabled for email: {}", email);
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User account is disabled.");
                 }
+
+                String role = firebaseUserDetailsService.getUserRoleByEmail(email);
+
+                if (role != null) {
+                    Map<String, String> response = new HashMap<>();
+                    response.put("email", email); // Return email instead of userId
+                    response.put("role", role);
+                    return ResponseEntity.ok(response);
+                } else {
+                    logger.warn("Role not found for Email: {}", email);
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role not found.");
+                }
+
             } else {
                 logger.warn("User not found in Firestore for email: {}", email);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
             }
 
-            String role = firebaseUserDetailsService.getUserRoleByEmail(email);
-
-            if (role != null) {
-                Map<String, String> response = new HashMap<>();
-                response.put("role", role);
-                return ResponseEntity.ok(response);
-            } else {
-                logger.warn("Role not found for Email: {}", email);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role not found.");
-            }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error verifying role and isActive for email: {}", email, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error.");

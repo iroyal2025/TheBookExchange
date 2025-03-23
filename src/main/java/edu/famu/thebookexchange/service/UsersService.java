@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 @Service
 public class UsersService {
@@ -196,14 +197,180 @@ public class UsersService {
         }
     }
 
-    public boolean updateUserBalance(String userId, double newBalance) throws InterruptedException, ExecutionException, TimeoutException {
+    public double getUserBalanceByEmail(String email) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Getting user balance for email: {}", email);
         try {
-            DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
-            userRef.update("balance", newBalance).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
-            return true;
-        } catch (Exception e) {
-            logger.error("Error updating user balance: {}", e.getMessage(), e);
+            QuerySnapshot querySnapshot = firestore.collection("Users").whereEqualTo("email", email).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+            if (!querySnapshot.isEmpty()) {
+                DocumentSnapshot document = querySnapshot.getDocuments().get(0);
+                Double balance = document.getDouble("balance");
+                return balance != null ? balance : 0.0; // Return 0.0 if balance is null
+            } else {
+                logger.warn("User not found with email: {}", email);
+                return 0.0; // Return 0.0 if user not found
+            }
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error getting user balance for email: {}", email, e);
             throw e;
         }
     }
+
+
+    public void updateUserBalanceByEmail(String email, double newBalance) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Updating user balance for email: {} to: {}", email, newBalance);
+        try {
+            QuerySnapshot querySnapshot = firestore.collection("Users").whereEqualTo("email", email).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+            if (!querySnapshot.isEmpty()) {
+                DocumentSnapshot document = querySnapshot.getDocuments().get(0);
+                firestore.collection("Users").document(document.getId()).update("balance", newBalance).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                logger.info("User balance updated for email: {}", email);
+            } else {
+                logger.warn("User not found with email: {}", email);
+            }
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error updating user balance for email: {}", email, e);
+            throw e;
+        }
+    }
+
+    public void removeStudentFromParent(String parentEmail, String studentEmail) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Removing student {} from parent {}", studentEmail, parentEmail);
+        try {
+            // Find the parent document using parentEmail
+            QuerySnapshot parentQuery = firestore.collection(USERS_COLLECTION).whereEqualTo("email", parentEmail).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+            if (parentQuery.isEmpty()) {
+                logger.warn("Parent with email {} not found.", parentEmail);
+                throw new IllegalArgumentException("Parent not found.");
+            }
+
+            DocumentSnapshot parentDoc = parentQuery.getDocuments().get(0);
+            DocumentReference parentDocRef = parentDoc.getReference();
+
+            // Find the student document within the parent's "students" subcollection
+            QuerySnapshot studentQuery = parentDocRef.collection("students").whereEqualTo("email", studentEmail).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+            if (!studentQuery.isEmpty()) {
+                DocumentSnapshot studentDoc = studentQuery.getDocuments().get(0);
+                parentDocRef.collection("students").document(studentDoc.getId()).delete().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                logger.info("Student {} removed from parent {} successfully.", studentEmail, parentEmail);
+            } else {
+                logger.warn("Student {} not found in parent {}'s subcollection.", studentEmail, parentEmail);
+                throw new IllegalArgumentException("Student not found.");
+            }
+        } catch (Exception e) {
+            logger.error("Error removing student from parent: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    public void addStudentToParent(String parentEmail, String studentEmail) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Adding student {} to parent {}", studentEmail, parentEmail);
+
+        try {
+            // Find the parent document using parentEmail
+            QuerySnapshot parentQuery = firestore.collection(USERS_COLLECTION).whereEqualTo("email", parentEmail).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+            if (parentQuery.isEmpty()) {
+                logger.warn("Parent with email {} not found.", parentEmail);
+                throw new IllegalArgumentException("Parent not found.");
+            }
+
+            DocumentSnapshot parentDoc = parentQuery.getDocuments().get(0);
+            DocumentReference parentDocRef = parentDoc.getReference();
+
+            // Find the student document using studentEmail
+            QuerySnapshot studentQuery = firestore.collection(USERS_COLLECTION).whereEqualTo("email", studentEmail).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+            if (studentQuery.isEmpty()) {
+                logger.warn("Student with email {} not found.", studentEmail);
+                throw new IllegalArgumentException("Student not found.");
+            }
+
+            DocumentSnapshot studentDoc = studentQuery.getDocuments().get(0);
+
+            // Create a map with student data
+            Map<String, Object> studentData = new HashMap<>();
+            studentData.put("email", studentDoc.getString("email"));
+            studentData.put("role", studentDoc.getString("role"));
+            studentData.put("major", studentDoc.getString("major"));
+            studentData.put("profilePicture", studentDoc.getString("profilePicture"));
+            studentData.put("isActive", studentDoc.getBoolean("isActive"));
+            studentData.put("balance", studentDoc.getDouble("balance"));
+
+            // Add the student data to the parent's "students" subcollection
+            parentDocRef.collection("students").document(studentDoc.getId()).set(studentData).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+            logger.info("Student {} added to parent {} successfully.", studentEmail, parentEmail);
+
+        } catch (Exception e) {
+            logger.error("Error adding student to parent: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    public List<RestUsers> getStudentsByParentEmail(String parentEmail) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Retrieving students for parent email: {}", parentEmail);
+
+        try {
+            // Query for the parent document based on email
+            Query query = firestore.collection(USERS_COLLECTION).whereEqualTo("email", parentEmail);
+            ApiFuture<QuerySnapshot> querySnapshot = query.get();
+
+            List<QueryDocumentSnapshot> documents = querySnapshot.get().getDocuments();
+
+            if (documents.isEmpty()) {
+                logger.warn("Parent document not found for email: {}", parentEmail);
+                return new ArrayList<>();
+            }
+
+            // Get the parent document
+            QueryDocumentSnapshot parentDoc = documents.get(0); // Assuming only one parent with the given email
+
+            List<String> studentEmails = (List<String>) parentDoc.get("students");
+
+            if (studentEmails == null || studentEmails.isEmpty()) {
+                logger.warn("No students found for parent: {}", parentEmail);
+                return new ArrayList<>();
+            }
+
+            List<RestUsers> students = new ArrayList<>();
+            for (String studentEmail : studentEmails) {
+                // Query for student documents based on email
+                Query studentQuery = firestore.collection(USERS_COLLECTION).whereEqualTo("email", studentEmail);
+                ApiFuture<QuerySnapshot> studentQuerySnapshot = studentQuery.get();
+
+                List<QueryDocumentSnapshot> studentDocs = studentQuerySnapshot.get().getDocuments();
+
+                if (!studentDocs.isEmpty()) {
+                    QueryDocumentSnapshot studentDoc = studentDocs.get(0); // Assuming only one student with the given email
+                    Map<String, Object> data = studentDoc.getData();
+
+                    RestUsers student = new RestUsers();
+                    student.setEmail((String) data.get("email"));
+                    student.setRole((String) data.get("role"));
+                    student.setUserId(studentDoc.getId());
+                    student.setMajor((String) data.get("major"));
+                    student.setProfilePicture((String) data.get("profilePicture"));
+                    student.setActive((Boolean) data.get("isActive"));
+                    student.setBalance(((Number) data.get("balance")).doubleValue());
+
+                    students.add(student);
+                    logger.info("Student added to list: {}", student);
+                } else {
+                    logger.warn("Student document not found: {}", studentEmail);
+                }
+            }
+
+            logger.info("Retrieved {} students for parent email: {}", students.size(), parentEmail);
+            return students;
+
+        } catch (InterruptedException | ExecutionException e) {
+            logger.error("Error retrieving students from Firestore", e);
+            return new ArrayList<>();
+        }
+    }
+
 }

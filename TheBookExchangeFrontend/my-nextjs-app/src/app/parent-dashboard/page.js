@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 
 export default function ParentDashboard() {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState('children');
+    const [activeTab, setActiveTab] = useState('students');
 
     const handleTabClick = (tab) => {
         setActiveTab(tab);
-        router.push(`/parent/${tab}`);
+        router.push(`/parent-dashboard/${tab}`);
     };
 
     return (
@@ -20,18 +20,11 @@ export default function ParentDashboard() {
 
                 <div className="flex justify-center mb-8">
                     <Button
-                        variant={activeTab === 'children' ? 'default' : 'outline'}
-                        className={`mr-4 ${activeTab === 'children' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
-                        onClick={() => handleTabClick('children')}
+                        variant={activeTab === 'students' ? 'default' : 'outline'}
+                        className={`mr-4 ${activeTab === 'students' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
+                        onClick={() => handleTabClick('students')}
                     >
-                        View Children
-                    </Button>
-                    <Button
-                        variant={activeTab === 'profile' ? 'default' : 'outline'}
-                        className={`${activeTab === 'profile' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
-                        onClick={() => handleTabClick('profile')}
-                    >
-                        View Profile
+                        View Students
                     </Button>
                 </div>
 

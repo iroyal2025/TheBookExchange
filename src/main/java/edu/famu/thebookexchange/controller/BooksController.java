@@ -33,6 +33,7 @@ public class BooksController {
         logger.info("getAllBooks endpoint was hit");
         try {
             List<RestBooks> books = booksService.getAllBooks();
+            logger.debug("Retrieved books: {}", books); // Log the retrieved books
             if (!books.isEmpty()) {
                 return ResponseEntity.ok(new ApiResponse<>(true, "Books retrieved successfully", books, null));
             } else {
@@ -46,8 +47,11 @@ public class BooksController {
 
     @PostMapping("/add")
     public ResponseEntity<ApiResponse<String>> addBook(@RequestBody RestBooks book) {
+        logger.info("addBook endpoint was hit");
+        logger.debug("Adding book: {}", book); // Log the book being added
         try {
             String bookId = booksService.addBook(book);
+            logger.debug("Book added with ID: {}", bookId); // Log the added book ID
             return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(true, "Book added successfully", bookId, null));
         } catch (InterruptedException | ExecutionException e) {
             logger.error("Error adding book: {}", e.getMessage(), e);
@@ -57,11 +61,15 @@ public class BooksController {
 
     @DeleteMapping("/delete")
     public ResponseEntity<ApiResponse<Boolean>> deleteBookByTitle(@RequestParam String title) {
+        logger.info("deleteBookByTitle endpoint was hit with title: {}", title);
+        logger.debug("Deleting book with title: {}", title); // Log the title being deleted
         try {
             boolean deleted = booksService.deleteBookByTitle(title);
             if (deleted) {
+                logger.debug("Book deleted successfully with title: {}", title); // Log successful deletion
                 return ResponseEntity.ok(new ApiResponse<>(true, "Book deleted successfully", deleted, null));
             } else {
+                logger.debug("Book not found or failed to delete with title: {}", title); // Log failure
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Book not found or failed to delete", deleted, null));
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -72,11 +80,15 @@ public class BooksController {
 
     @PutMapping("/{bookId}")
     public ResponseEntity<ApiResponse<String>> updateBook(@PathVariable String bookId, @RequestBody RestBooks updatedBook) {
+        logger.info("updateBook endpoint was hit with bookId: {}", bookId);
+        logger.debug("Updating book with ID: {}, Updated book: {}", bookId, updatedBook); // Log update details
         try {
             String updateResult = booksService.updateBook(bookId, updatedBook);
             if (updateResult != null) {
+                logger.debug("Book updated successfully with ID: {}", bookId); // Log successful update
                 return ResponseEntity.ok(new ApiResponse<>(true, "Book updated successfully", updateResult, null));
             } else {
+                logger.debug("Book not found or failed to update with ID: {}", bookId); // Log failure
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Book not found or failed to update", null, null));
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -85,43 +97,49 @@ public class BooksController {
         }
     }
 
-    @PutMapping("/{bookId}/purchase/{userId}")
-    public ResponseEntity<ApiResponse<Boolean>> purchaseBook(@PathVariable String bookId, @PathVariable String userId) {
+    @PutMapping("/{bookId}/purchase/email/{email}")
+    public ResponseEntity<ApiResponse<Double>> purchaseBook(@PathVariable String bookId, @PathVariable String email) {
+        logger.info("purchaseBook endpoint was hit with bookId: {} and email: {}", bookId, email);
         try {
             RestBooks book = booksService.getBookById(bookId);
-            if(book == null){
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Book not found", false, null));
+            if (book == null) {
+                logger.error("Book not found for bookId: {}", bookId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Book not found", null, null));
             }
             double bookPrice = book.getPrice();
-            double userBalance = usersService.getUserBalance(userId);
+            double userBalance = usersService.getUserBalanceByEmail(email);
+            logger.info("Book price: {}, User balance: {}", bookPrice, userBalance);
 
             if (userBalance >= bookPrice) {
-                usersService.updateUserBalance(userId, userBalance - bookPrice);
+                double updatedBalance = booksService.purchaseBook(bookId, email); // Get updated balance
 
-                boolean purchaseResult = booksService.purchaseBook(bookId, userId);
-
-                if (purchaseResult) {
-                    return ResponseEntity.ok(new ApiResponse<>(true, "Book purchased successfully", purchaseResult, null));
+                if (updatedBalance >= 0) { // Check if purchase was successful
+                    logger.info("Book purchased successfully, updated balance: {}", updatedBalance);
+                    return ResponseEntity.ok(new ApiResponse<>(true, "Book purchased successfully", updatedBalance, null));
                 } else {
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to purchase book", purchaseResult, null));
+                    logger.error("Failed to purchase book");
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to purchase book", null, null));
                 }
             } else {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "Insufficient funds", false, "Insufficient funds"));
+                logger.warn("Insufficient funds for email: {}", email);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "Insufficient funds", null, "Insufficient funds"));
             }
-
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error purchasing book: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error purchasing book", false, e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error purchasing book", null, e.getMessage()));
         }
     }
-
-    @GetMapping("/owned/{userId}")
-    public ResponseEntity<ApiResponse<List<RestBooks>>> findBooksOwnedByUser(@PathVariable String userId) {
+    @GetMapping("/owned/email/{email}") // Updated path variable
+    public ResponseEntity<ApiResponse<List<RestBooks>>> findBooksOwnedByUser(@PathVariable String email) { // Updated parameter
+        logger.info("findBooksOwnedByUser endpoint was hit with email: {}", email); // Updated log message
+        logger.debug("Finding books owned by email: {}", email); // Updated log message
         try {
-            List<RestBooks> ownedBooks = booksService.findBooksOwnedByUser(userId);
+            List<RestBooks> ownedBooks = booksService.findBooksOwnedByUserEmail(email); // Updated method call
+            logger.debug("Owned books retrieved: {}", ownedBooks); // Log retrieved books
             if (!ownedBooks.isEmpty()) {
                 return ResponseEntity.ok(new ApiResponse<>(true, "Books owned by user retrieved successfully", ownedBooks, null));
             } else {
+                logger.debug("No books found owned by email: {}", email); // Updated log message
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(new ApiResponse<>(true, "No books found owned by user", null, null));
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -129,4 +147,6 @@ public class BooksController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error finding books owned by user", null, e.getMessage()));
         }
     }
+
+
 }

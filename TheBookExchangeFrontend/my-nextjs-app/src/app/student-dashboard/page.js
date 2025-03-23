@@ -34,7 +34,6 @@ export default function StudentDashboard() {
                         My Books
                     </Button>
                 </div>
-
                 {/* Content will be rendered by the routes */}
             </div>
         </div>
