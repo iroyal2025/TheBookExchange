@@ -215,7 +215,7 @@ public class CoursesService {
         return books;
     }
     public void addTextbookToCourse(String courseName, String textbook) throws ExecutionException, InterruptedException, TimeoutException {
-        Query query = firestore.collection(COURSES_COLLECTION).whereEqualTo("courseName", courseName);
+        Query query = firestore.collection(COURSES_COLLECTION).whereEqualTo("Course Name", courseName);
         ApiFuture<QuerySnapshot> future = query.get();
         QuerySnapshot querySnapshot = future.get();
 
@@ -230,6 +230,17 @@ public class CoursesService {
         textbooks.add(textbook);
 
         docRef.update("textbooks", textbooks);
+    }
+    public List<String> getCourseTextbooks(String courseId) throws ExecutionException, InterruptedException, TimeoutException {
+        DocumentReference docRef = firestore.collection(COURSES_COLLECTION).document(courseId);
+        DocumentSnapshot document = docRef.get().get();
+        if (document.exists()) {
+            RestCourses course = document.toObject(RestCourses.class);
+            if (course != null && course.getTextbooks() != null) {
+                return course.getTextbooks();
+            }
+        }
+        return new ArrayList<>();
     }
 }
 

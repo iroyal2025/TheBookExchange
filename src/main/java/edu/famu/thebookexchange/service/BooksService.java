@@ -325,5 +325,38 @@ public class BooksService {
 
         return books;
     }
+    public boolean removeBookByTitle(String bookTitle) throws InterruptedException, ExecutionException, TimeoutException {
+        // Remove book from courses
+        Query courseQuery = firestore.collection(COURSES_COLLECTION)
+                .whereArrayContains("textbooks", bookTitle);
+        ApiFuture<QuerySnapshot> courseQueryFuture = courseQuery.get();
+        QuerySnapshot courseQuerySnapshot = courseQueryFuture.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+        WriteBatch batch = firestore.batch();
+        for (DocumentSnapshot courseDocument : courseQuerySnapshot.getDocuments()) {
+            List<String> textbooks = (List<String>) courseDocument.get("textbooks");
+            if (textbooks != null) {
+                textbooks.remove(bookTitle);
+                batch.update(courseDocument.getReference(), "textbooks", textbooks);
+            }
+        }
+        batch.commit().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+        // Remove book from books collection
+        Query bookQuery = firestore.collection(BOOKS_COLLECTION).whereEqualTo("title", bookTitle);
+        ApiFuture<QuerySnapshot> bookQueryFuture = bookQuery.get();
+        QuerySnapshot bookQuerySnapshot = bookQueryFuture.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+        if (!bookQuerySnapshot.isEmpty()) {
+            WriteBatch bookBatch = firestore.batch();
+            for (DocumentSnapshot bookDocument : bookQuerySnapshot.getDocuments()) {
+                bookBatch.delete(bookDocument.getReference());
+            }
+            bookBatch.commit().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+            return true;
+        } else {
+            return false;
+        }
+    }
 
 }

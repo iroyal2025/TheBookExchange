@@ -29,6 +29,7 @@ export default function ManageCourses() {
     const [addBookLoading, setAddBookLoading] = useState(false);
     const [addBookError, setAddBookError] = useState(null);
     const router = useRouter();
+    const [successMessage, setSuccessMessage] = useState(null);
 
     useEffect(() => {
         const fetchCourses = async () => {
@@ -53,41 +54,58 @@ export default function ManageCourses() {
         fetchCourses();
     }, [currentUser]);
 
+    const handleRemoveBook = async (bookTitle) => {
+        setLoading(true);
+        console.log("handleRemoveBook called for:", bookTitle);
+        try {
+            const response = await axios.delete(`http://localhost:8080/Books/remove/title/${bookTitle}`);
+            console.log("Remove book response:", response);
+            if (response.data && response.data.success) {
+                console.log("Book removed successfully");
+                setSuccessMessage("Book removed successfully!");
+                setTimeout(() => setSuccessMessage(null), 3000);
+
+                if (showCourseBooks && selectedCourseBooks.length > 0 && selectedCourseBooks[0].courseId && selectedCourseBooks[0].courseId.id) {
+                    const course = courses.find(course => course.courseId === selectedCourseBooks[0].courseId.id);
+                    if (course) {
+                        console.log("Refetching course books for:", course.courseName);
+                        await fetchCourseBooks(course.courseName);
+                        console.log("Course books refetched");
+                    }
+                }
+            } else {
+                setError("Failed to remove book");
+                console.error("Failed to remove book");
+            }
+        } catch (err) {
+            setError(err.message);
+            console.error("Error removing book:", err);
+        } finally {
+            setLoading(false);
+            console.log("handleRemoveBook finished");
+        }
+    };
+
     const fetchCourseBooks = async (courseName) => {
         setLoadingBooks(true);
+        console.log("fetchCourseBooks called for:", courseName);
         try {
             const response = await axios.get(`http://localhost:8080/Courses/books/name/${courseName}`);
-            console.log("Course Name:", courseName);
-            console.log("API Response:", response.data);
+            console.log("fetchCourseBooks response:", response);
             if (response.data && response.data.success) {
                 setSelectedCourseBooks(response.data.data);
                 setShowCourseBooks(true);
+                console.log("Course books fetched successfully");
             } else {
                 setError("Failed to fetch course books");
+                console.error("Failed to fetch course books");
             }
         } catch (err) {
             console.error("Failed to fetch books for course:", err);
             setError(err.message);
         } finally {
             setLoadingBooks(false);
-        }
-    };
-
-    const handleRemoveBook = async (courseId, bookTitle) => {
-        setLoading(true);
-        try {
-            const response = await axios.delete(`http://localhost:8080/Books/remove/title/${bookTitle}`);
-            if (response.data && response.data.success) {
-                if (showCourseBooks) {
-                    fetchCourseBooks(courses.find(course => course.courseId === courseId).courseName);
-                }
-            } else {
-                setError("Failed to remove book");
-            }
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
+            console.log("fetchCourseBooks finished");
         }
     };
 
@@ -99,12 +117,15 @@ export default function ManageCourses() {
                 ...newBook,
                 courseId: courseId,
             });
+
             if (response.data && response.data.success) {
-                // Add the book to the textbooks list
                 const courseName = courses.find(course => course.courseId === courseId).courseName;
-                await axios.post(`http://localhost:8080/Courses/addTextbook`, {
-                    courseName: courseName,
-                    textbook: newBook.title,
+
+                await axios.post(`http://localhost:8080/Courses/addTextbook`, null, {
+                    params: {
+                        courseName: courseName,
+                        textbook: newBook.title,
+                    },
                 });
 
                 fetchCourseBooks(courseName);
@@ -137,7 +158,8 @@ export default function ManageCourses() {
             <div className="bg-white p-6 rounded-lg shadow-md">
                 <h2 className="text-3xl font-bold mb-4 text-gray-800">Manage Courses</h2>
 
-                <Button onClick={() => router.push('/teacher-dashboard')} className="mb-4 bg-blue-500 text-white hover:bg-blue-600">
+                <Button onClick={() => router.push('/teacher-dashboard')}
+                        className="mb-4 bg-blue-500 text-white hover:bg-blue-600">
                     Teacher Dashboard
                 </Button>
 
@@ -155,7 +177,8 @@ export default function ManageCourses() {
                                 <tr key={course.courseId} className="border-b border-gray-200 hover:bg-gray-50">
                                     <td className="p-3 text-gray-800">{course.courseName}</td>
                                     <td className="p-3">
-                                        <Button onClick={() => fetchCourseBooks(course.courseName)} variant="outline" className="text-blue-600 hover:bg-blue-50">
+                                        <Button onClick={() => fetchCourseBooks(course.courseName)} variant="outline"
+                                                className="text-blue-600 hover:bg-blue-50">
                                             View Books
                                         </Button>
                                     </td>
@@ -168,7 +191,9 @@ export default function ManageCourses() {
             </div>
             {showCourseBooks && (
                 <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h3 className="text-xl font-semibold mb-4 text-gray-800">Books for {courses.find(course => course.courseId === selectedCourseBooks[0]?.courseId?.id)?.courseName}</h3>
+                    <h3 className="text-xl font-semibold mb-4 text-gray-800">Books
+                        for {courses.find(course => course.courseId === selectedCourseBooks[0]?.courseId?.id)?.courseName}</h3>
+                    {successMessage && <p className="text-green-600">{successMessage}</p>}
                     {selectedCourseBooks.map(book => (
                         <div key={book.bookId} className="border-b border-gray-200 p-3">
                             <p><strong>Title:</strong> {book.title}</p>
@@ -183,13 +208,13 @@ export default function ManageCourses() {
                                 <div>
                                     <p><strong>Textbooks:</strong></p>
                                     <ul>
-                                        {book.textbooks.map((textbook, index) => (
-                                            <li key={index}>{textbook}</li>
+                                        {book.textbooks.map((textbook) => (
+                                            <li key={textbook}>{textbook}</li>
                                         ))}
                                     </ul>
                                 </div>
                             )}
-                            <Button onClick={() => handleRemoveBook(book.courseId.id, book.bookId)} variant="outline" size="icon">
+                            <Button onClick={() => handleRemoveBook(book.title)} variant="outline" size="icon">
                                 X
                             </Button>
                         </div>
@@ -199,12 +224,21 @@ export default function ManageCourses() {
                     </Button>
                     {showAddBookForm && (
                         <div className="mt-4">
-                            <Input placeholder="Title" value={newBook.title} onChange={(e) => setNewBook({ ...newBook, title: e.target.value })} className="mb-2" />
-                            <Input placeholder="Author" value={newBook.author} onChange={(e) => setNewBook({ ...newBook, author: e.target.value })} className="mb-2" />
-                            <Input placeholder="Edition" value={newBook.edition} onChange={(e) => setNewBook({ ...newBook, edition: e.target.value })} className="mb-2" />
-                            <Input placeholder="ISBN" value={newBook.ISBN} onChange={(e) => setNewBook({ ...newBook, ISBN: e.target.value })} className="mb-2" />
-                            <Input placeholder="Condition" value={newBook.condition} onChange={(e) => setNewBook({ ...newBook, condition: e.target.value })} className="mb-2" />
-                            <Input placeholder="Description" value={newBook.description} onChange={(e) => setNewBook({ ...newBook, description: e.target.value })} className="mb-2" />
+                            <Input placeholder="Title" value={newBook.title}
+                                   onChange={(e) => setNewBook({ ...newBook, title: e.target.value })} className="mb-2" />
+                            <Input placeholder="Author" value={newBook.author}
+                                   onChange={(e) => setNewBook({ ...newBook, author: e.target.value })} className="mb-2" />
+                            <Input placeholder="Edition" value={newBook.edition}
+                                   onChange={(e) => setNewBook({ ...newBook, edition: e.target.value })}
+                                   className="mb-2" />
+                            <Input placeholder="ISBN" value={newBook.ISBN}
+                                   onChange={(e) => setNewBook({ ...newBook, ISBN: e.target.value })} className="mb-2" />
+                            <Input placeholder="Condition" value={newBook.condition}
+                                   onChange={(e) => setNewBook({ ...newBook, condition: e.target.value })}
+                                   className="mb-2" />
+                            <Input placeholder="Description" value={newBook.description}
+                                   onChange={(e) => setNewBook({ ...newBook, description: e.target.value })}
+                                   className="mb-2" />
                             <div className="mb-2">
                                 <label className="block text-sm font-medium text-gray-700">Is Digital</label>
                                 <input
@@ -215,14 +249,18 @@ export default function ManageCourses() {
                                 />
                             </div>
                             {newBook.isDigital && (
-                                <Input placeholder="Digital Copy Path" value={newBook.digitalCopyPath} onChange={(e) => setNewBook({ ...newBook, digitalCopyPath: e.target.value })} className="mb-2" />
+                                <Input placeholder="Digital Copy Path" value={newBook.digitalCopyPath}
+                                       onChange={(e) => setNewBook({ ...newBook, digitalCopyPath: e.target.value })}
+                                       className="mb-2" />
                             )}
-                            <Button onClick={() => handleAddBook(selectedCourseBooks[0].courseId.id)} disabled={addBookLoading} className="mt-2">
+                            <Button onClick={() => handleAddBook(selectedCourseBooks[0].courseId.id)}
+                                    disabled={addBookLoading} className="mt-2">
                                 {addBookLoading ? <Spinner /> : "Submit"}
                             </Button>
                             {addBookError && <p className="text-red-500 mt-2">{addBookError}</p>}
                         </div>
                     )}
+
                     <Button onClick={() => setShowCourseBooks(false)} variant="outline" className="mt-4">
                         Close
                     </Button>

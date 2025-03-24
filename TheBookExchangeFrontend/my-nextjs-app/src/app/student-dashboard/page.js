@@ -12,6 +12,14 @@ export default function StudentDashboard() {
         router.push(`/student-dashboard/${tab}`);
     };
 
+    const handleLogout = () => {
+        // Clear authentication data (if any)
+        localStorage.removeItem('authToken'); // Or whatever your auth token is called
+
+        // Redirect to the login page (root of your app)
+        router.push('/');
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-r from-orange-500 to-green-500 flex flex-col items-center justify-center">
             <div className="bg-white p-10 rounded-2xl shadow-2xl text-center w-full max-w-4xl">
@@ -34,6 +42,9 @@ export default function StudentDashboard() {
                         My Books
                     </Button>
                 </div>
+                <Button onClick={handleLogout} className="mt-6 bg-red-500 text-white hover:bg-red-600">
+                    Logout
+                </Button>
                 {/* Content will be rendered by the routes */}
             </div>
         </div>

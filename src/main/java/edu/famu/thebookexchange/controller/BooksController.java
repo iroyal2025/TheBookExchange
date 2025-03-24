@@ -147,6 +147,19 @@ public class BooksController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error finding books owned by user", null, e.getMessage()));
         }
     }
-
+    @DeleteMapping("/remove/title/{bookTitle}")
+    public ResponseEntity<ApiResponse<String>> removeBookByTitle(@PathVariable String bookTitle) {
+        try {
+            boolean removed = booksService.removeBookByTitle(bookTitle); // Correct call
+            if (removed) {
+                return ResponseEntity.ok(new ApiResponse<>(true, "Book removed successfully", null, null));
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Book not found", null, null));
+            }
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
+            logger.error("Error removing book: {}", bookTitle, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error removing book", null, e.getMessage()));
+        }
+    }
 
 }
