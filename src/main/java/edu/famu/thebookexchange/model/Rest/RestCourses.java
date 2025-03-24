@@ -1,34 +1,48 @@
 package edu.famu.thebookexchange.model.Rest;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.cloud.firestore.DocumentReference;
-import edu.famu.thebookexchange.model.Abstracts.ACourses;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
-@Setter
-@Getter
-@NoArgsConstructor
-public class RestCourses extends ACourses {
+public class RestCourses extends edu.famu.thebookexchange.model.Abstracts.ACourses {
+    private String teacher;
+    private List<String> textbooks; // Store book titles as strings for JSON
 
-    @JsonSerialize(using = DocumentReferenceSerializer.class)
-    @JsonDeserialize(using = DocumentReferenceDeserializer.class)
-    private DocumentReference userId; // DocumentReference acts as the userId
+    public RestCourses() {
+        super();
+    }
 
-    public RestCourses(String courseName, DocumentReference userId) {
+    public RestCourses(String courseName, String teacher, List<String> textbooks) {
         super(courseName);
-        this.userId = userId;
+        this.teacher = teacher;
+        this.textbooks = textbooks;
     }
 
-    // Manual Getters
-    public DocumentReference getUserId() {
-        return userId;
+    @JsonProperty("teacher")
+    public String getTeacher() {
+        return teacher;
     }
 
-    // Manual Setters
-    public void setUserId(DocumentReference userId) {
-        this.userId = userId;
+    @JsonProperty("teacher")
+    public void setTeacher(String teacher) {
+        this.teacher = teacher;
+    }
+
+    @JsonProperty("textbooks")
+    public List<String> getTextbooks() {
+        return textbooks;
+    }
+
+    @JsonProperty("textbooks")
+    public void setTextbooks(List<String> textbooks) {
+        this.textbooks = textbooks;
+    }
+
+    @Override
+    public String toString() {
+        return "RestCourses{" +
+                ", teacher='" + teacher + '\'' +
+                ", textbooks=" + textbooks +
+                ", Course Name='" + getCourseName() + '\'' +
+                '}';
     }
 }

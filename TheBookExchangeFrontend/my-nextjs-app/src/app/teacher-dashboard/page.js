@@ -9,7 +9,7 @@ export default function TeacherDashboard() {
 
     const handleTabClick = (tab) => {
         setActiveTab(tab);
-        router.push(`/teacher/${tab}`);
+        router.push(`/teacher-dashboard/${tab}`)
     };
 
     return (
@@ -25,13 +25,6 @@ export default function TeacherDashboard() {
                         onClick={() => handleTabClick('classes')}
                     >
                         Manage Classes
-                    </Button>
-                    <Button
-                        variant={activeTab === 'profile' ? 'default' : 'outline'}
-                        className={`${activeTab === 'profile' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
-                        onClick={() => handleTabClick('profile')}
-                    >
-                        View Profile
                     </Button>
                 </div>
 
