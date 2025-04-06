@@ -30,6 +30,10 @@ export default function ManageCourses() {
     const [addBookError, setAddBookError] = useState(null);
     const router = useRouter();
     const [successMessage, setSuccessMessage] = useState(null);
+    const [feedback, setFeedback] = useState({ bookId: null, feedbackText: '' });
+    const [feedbackLoading, setFeedbackLoading] = useState(false);
+    const [feedbackError, setFeedbackError] = useState(null);
+    const [bookFeedback, setBookFeedback] = useState({});
 
     useEffect(() => {
         const fetchCourses = async () => {
@@ -150,6 +154,53 @@ export default function ManageCourses() {
         }
     };
 
+    const handleFeedback = async (bookId, feedbackText) => {
+        setFeedbackLoading(true);
+        setFeedbackError(null);
+        try {
+            const response = await axios.post(`http://localhost:8080/Forums/feedback/book/${bookId}`, {
+                feedback: feedbackText,
+            });
+
+            if (response.data && response.data.success) {
+                setSuccessMessage("Feedback added successfully!");
+                setTimeout(() => setSuccessMessage(null), 3000);
+                setFeedback({ bookId: null, feedbackText: '' });
+                fetchFeedback(bookId);
+            } else {
+                setFeedbackError("Failed to add feedback");
+            }
+        } catch (err) {
+            setFeedbackError(err.message);
+        } finally {
+            setFeedbackLoading(false);
+        }
+    };
+
+    const handleRemoveFeedback = async (feedbackId, bookId) => {
+        try {
+            const response = await axios.delete(`http://localhost:8080/Forums/feedback/${feedbackId}`);
+            if (response.data && response.data.success) {
+                fetchFeedback(bookId);
+            } else {
+                console.error('Failed to delete feedback');
+            }
+        } catch (err) {
+            console.error('Error deleting feedback:', err);
+        }
+    };
+
+    const fetchFeedback = async (bookId) => {
+        try {
+            const response = await axios.get(`http://localhost:8080/Forums/feedback/book/${bookId}`);
+            if (response.data && response.data.success) {
+                setBookFeedback({ ...bookFeedback, [bookId]: response.data.data });
+            }
+        } catch (err) {
+            console.error("Failed to fetch feedback:", err);
+        }
+    };
+
     if (loading) return <div className="p-4 flex justify-center items-center"><Spinner /></div>;
     if (error) return <div className="p-4 text-red-600">Error loading courses: {error}</div>;
 
@@ -217,6 +268,41 @@ export default function ManageCourses() {
                             <Button onClick={() => handleRemoveBook(book.title)} variant="outline" size="icon">
                                 X
                             </Button>
+                            <Button onClick={() => setFeedback({ bookId: book.bookId, feedbackText: '' })} variant="outline" className="mt-2">
+                                Add Feedback
+                            </Button>
+                            <Button onClick={() => fetchFeedback(book.bookId)} variant="outline" className="mt-2">
+                                View Feedback
+                            </Button>
+                            {bookFeedback[book.bookId] && (
+                                <div className="mt-2">
+                                    <p><strong>Feedback:</strong></p>
+                                    <ul>
+                                        {bookFeedback[book.bookId].map(fb => (
+                                            <li key={fb.feedbackId}>
+                                                {fb.feedback}
+                                                <Button onClick={() => handleRemoveFeedback(fb.feedbackId, book.bookId)} variant="outline" size="icon" className="ml-2">
+                                                    X
+                                                </Button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            {feedback.bookId === book.bookId && (
+                                <div className="mt-2">
+                                    <Input
+                                        placeholder="Feedback"
+                                        value={feedback.feedbackText}
+                                        onChange={(e) => setFeedback({ ...feedback, feedbackText: e.target.value })}
+                                        className="mb-2"
+                                    />
+                                    <Button onClick={() => handleFeedback(book.bookId, feedback.feedbackText)} disabled={feedbackLoading}>
+                                        {feedbackLoading ? <Spinner /> : "Submit Feedback"}
+                                    </Button>
+                                    {feedbackError && <p className="text-red-500 mt-2">{feedbackError}</p>}
+                                </div>
+                            )}
                         </div>
                     ))}
                     <Button onClick={() => setShowAddBookForm(true)} variant="outline" className="mt-4">

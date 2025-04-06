@@ -13,10 +13,7 @@ export default function AdminDashboard() {
     };
 
     const handleLogout = () => {
-        // Clear authentication data (if any)
-        localStorage.removeItem('authToken'); // Or whatever your auth token is called
-
-        // Redirect to the login page (root of your app)
+        localStorage.removeItem('authToken');
         router.push('/');
     };
 
@@ -26,13 +23,20 @@ export default function AdminDashboard() {
                 <h2 className="text-4xl font-bold text-orange-600 mb-6">Admin Dashboard</h2>
                 <img src="/Book Exchange side photo.jpg" alt="Book Exchange side photo" className="w-48 mx-auto mb-6" />
 
-                <div className="flex justify-center mb-8">
+                <div className="flex justify-center mb-8 space-x-4"> {/* Added space-x-4 for spacing */}
                     <Button
                         variant={activeTab === 'users' ? 'default' : 'outline'}
                         className={`${activeTab === 'users' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
                         onClick={() => handleTabClick('users')}
                     >
                         Manage Users
+                    </Button>
+                    <Button
+                        variant={activeTab === 'reports' ? 'default' : 'outline'}
+                        className={`${activeTab === 'reports' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
+                        onClick={() => handleTabClick('reports')}
+                    >
+                        View Reports
                     </Button>
                 </div>
 

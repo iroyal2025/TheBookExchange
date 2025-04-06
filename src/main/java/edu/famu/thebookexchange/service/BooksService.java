@@ -58,7 +58,9 @@ public class BooksService {
                         bookId,
                         ownedBy,
                         document.get("userId", DocumentReference.class),
-                        document.get("courseId", DocumentReference.class)
+                        document.get("courseId", DocumentReference.class),
+                        document.getDouble("rating") != null ? document.getDouble("rating") : 0.0,
+                        document.getLong("ratingCount") != null ? document.getLong("ratingCount") : 0
                 );
                 books.add(book);
             }
@@ -83,6 +85,8 @@ public class BooksService {
         bookData.put("ownedBy", book.getOwnedBy());
         bookData.put("userId", book.getUserId());
         bookData.put("courseId", book.getCourseId());
+        bookData.put("rating", 0.0);
+        bookData.put("ratingCount", 0L);
 
         ApiFuture<DocumentReference> writeResult = firestore.collection(BOOKS_COLLECTION).add(bookData);
         DocumentReference rs = writeResult.get();
@@ -131,6 +135,7 @@ public class BooksService {
             throw e;
         }
     }
+
     public DocumentSnapshot getBookDocumentSnapshot(String bookId) throws ExecutionException, InterruptedException, TimeoutException {
         DocumentReference bookRef = firestore.collection(BOOKS_COLLECTION).document(bookId);
         return bookRef.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
@@ -144,14 +149,13 @@ public class BooksService {
                 DocumentSnapshot bookDoc = transaction.get(firestore.collection(BOOKS_COLLECTION).document(bookId)).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
                 if (!bookDoc.exists()) {
                     logger.warn("Book not found with ID: {}", bookId);
-                    return -1.0; // Indicate failure
+                    return -1.0;
                 }
 
-                // Find user document using email
                 QuerySnapshot userQuery = firestore.collection("Users").whereEqualTo("email", email).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
                 if (userQuery.isEmpty()) {
                     logger.warn("User not found with email: {}", email);
-                    return -1.0; // Indicate failure
+                    return -1.0;
                 }
                 DocumentSnapshot userDoc = userQuery.getDocuments().get(0);
 
@@ -160,15 +164,13 @@ public class BooksService {
 
                 if (userBalance < bookPrice) {
                     logger.warn("Insufficient funds for user: {}", email);
-                    return -1.0; // Indicate failure
+                    return -1.0;
                 }
 
-                // Update user balance
                 double newBalance = userBalance - bookPrice;
                 transaction.update(firestore.collection("Users").document(userDoc.getId()), "balance", newBalance);
                 logger.info("User balance updated for user: {}", email);
 
-                // Update book ownership
                 List<String> ownedBy = (List<String>) bookDoc.get("ownedBy");
                 if (ownedBy == null) {
                     ownedBy = new ArrayList<>();
@@ -177,8 +179,8 @@ public class BooksService {
                 transaction.update(firestore.collection(BOOKS_COLLECTION).document(bookId), "ownedBy", ownedBy);
                 logger.info("Book ownership updated for book: {}", bookId);
 
-                return newBalance; // Indicate success.
-            }).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS); // Retrieve Double from ApiFuture
+                return newBalance;
+            }).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
         } catch (Exception e) {
             logger.error("Error purchasing book: {}", e.getMessage(), e);
             throw e;
@@ -201,7 +203,9 @@ public class BooksService {
                     bookId,
                     (List<String>) document.get("ownedBy"),
                     document.get("userId", DocumentReference.class),
-                    document.get("courseId", DocumentReference.class)
+                    document.get("courseId", DocumentReference.class),
+                    document.getDouble("rating") != null ? document.getDouble("rating") : 0.0,
+                    document.getLong("ratingCount") != null ? document.getLong("ratingCount") : 0
             );
         } else {
             return null;
@@ -215,13 +219,13 @@ public class BooksService {
         ApiFuture<QuerySnapshot> querySnapshot = query.get();
         List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
 
-        logger.debug("Number of documents retrieved: {}", documents.size()); // Log the number of documents
+        logger.debug("Number of documents retrieved: {}", documents.size());
 
         List<RestBooks> ownedBooks = new ArrayList<>();
 
         for (QueryDocumentSnapshot document : documents) {
             if (document.exists()) {
-                logger.debug("Document ID: {}, Data: {}", document.getId(), document.getData()); // Log document ID and data
+                logger.debug("Document ID: {}, Data: {}", document.getId(), document.getData());
 
                 String bookId = document.getId();
                 RestBooks book = new RestBooks(
@@ -237,7 +241,9 @@ public class BooksService {
                         bookId,
                         (List<String>) document.get("ownedBy"),
                         document.get("userId", DocumentReference.class),
-                        document.get("courseId", DocumentReference.class)
+                        document.get("courseId", DocumentReference.class),
+                        document.getDouble("rating") != null ? document.getDouble("rating") : 0.0,
+                        document.getLong("ratingCount") != null ? document.getLong("ratingCount") : 0
                 );
                 ownedBooks.add(book);
             }
@@ -268,8 +274,8 @@ public class BooksService {
             throw e;
         }
     }
+
     public List<RestBooks> getCourseBooksByCourseName(String courseName) throws ExecutionException, InterruptedException, TimeoutException {
-        // Find the course document by course name
         ApiFuture<QuerySnapshot> courseQuery = firestore.collection(COURSES_COLLECTION)
                 .whereEqualTo("Course Name", courseName)
                 .get();
@@ -280,7 +286,7 @@ public class BooksService {
             return new ArrayList<>();
         }
 
-        DocumentSnapshot courseDocument = courseDocuments.get(0); // Assuming course name is unique
+        DocumentSnapshot courseDocument = courseDocuments.get(0);
         List<String> bookTitles = (List<String>) courseDocument.get("textbooks");
 
         if (bookTitles == null || bookTitles.isEmpty()) {
@@ -288,7 +294,6 @@ public class BooksService {
             return new ArrayList<>();
         }
 
-        // Fetch books based on titles
         List<RestBooks> books = new ArrayList<>();
         for (String title : bookTitles) {
             ApiFuture<QuerySnapshot> bookQuery = firestore.collection(BOOKS_COLLECTION)
@@ -297,7 +302,7 @@ public class BooksService {
             List<QueryDocumentSnapshot> bookDocuments = bookQuery.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
 
             if (!bookDocuments.isEmpty()) {
-                DocumentSnapshot bookDocument = bookDocuments.get(0); // Assuming title is unique
+                DocumentSnapshot bookDocument = bookDocuments.get(0);
                 String bookId = bookDocument.getId();
                 List<String> ownedBy = (List<String>) bookDocument.get("ownedBy");
                 if (ownedBy == null) {
@@ -317,7 +322,9 @@ public class BooksService {
                         bookId,
                         ownedBy,
                         bookDocument.get("userId", DocumentReference.class),
-                        bookDocument.get("courseId", DocumentReference.class)
+                        bookDocument.get("courseId", DocumentReference.class),
+                        bookDocument.getDouble("rating") != null ? bookDocument.getDouble("rating") : 0.0,
+                        bookDocument.getLong("ratingCount") != null ? bookDocument.getLong("ratingCount") : 0
                 );
                 books.add(book);
             }
@@ -325,8 +332,8 @@ public class BooksService {
 
         return books;
     }
+
     public boolean removeBookByTitle(String bookTitle) throws InterruptedException, ExecutionException, TimeoutException {
-        // Remove book from courses
         Query courseQuery = firestore.collection(COURSES_COLLECTION)
                 .whereArrayContains("textbooks", bookTitle);
         ApiFuture<QuerySnapshot> courseQueryFuture = courseQuery.get();
@@ -342,7 +349,6 @@ public class BooksService {
         }
         batch.commit().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
 
-        // Remove book from books collection
         Query bookQuery = firestore.collection(BOOKS_COLLECTION).whereEqualTo("title", bookTitle);
         ApiFuture<QuerySnapshot> bookQueryFuture = bookQuery.get();
         QuerySnapshot bookQuerySnapshot = bookQueryFuture.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
@@ -359,4 +365,38 @@ public class BooksService {
         }
     }
 
+    public void rateBook(String bookTitle, String userEmail, int rating) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Rating book with title: {} by user: {} with rating: {}", bookTitle, userEmail, rating);
+
+        try {
+            Query query = firestore.collection(BOOKS_COLLECTION).whereEqualTo("title", bookTitle);
+            ApiFuture<QuerySnapshot> querySnapshot = query.get();
+            List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
+
+            if (documents.isEmpty()) {
+                logger.warn("Book not found for rating with title: {}", bookTitle);
+                return;
+            }
+
+            DocumentSnapshot bookDoc = documents.get(0);
+            DocumentReference bookRef = bookDoc.getReference();
+
+            double currentRating = bookDoc.getDouble("rating") != null ? bookDoc.getDouble("rating") : 0.0;
+            long currentRatingCount = bookDoc.getLong("ratingCount") != null ? bookDoc.getLong("ratingCount") : 0;
+
+            double newRating = (currentRating * currentRatingCount + rating) / (currentRatingCount + 1);
+            long newRatingCount = currentRatingCount + 1;
+
+            Map<String, Object> updatedBookData = new HashMap<>();
+            updatedBookData.put("rating", newRating);
+            updatedBookData.put("ratingCount", newRatingCount);
+
+            bookRef.update(updatedBookData).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+            logger.info("Book rating updated successfully for book: {}", bookTitle);
+        } catch (Exception e) {
+            logger.error("Error rating book: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
 }

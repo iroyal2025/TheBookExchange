@@ -3,11 +3,11 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from '@/lib/axiosConfig';
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { AuthContext } from '../../../context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { AuthContext } from '../../../../context/AuthContext';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from "@/components/ui/input";
 
-export default function BrowseTextbooks() {
+export default function BrowseTextbooksParent() {
     const [books, setBooks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -18,20 +18,19 @@ export default function BrowseTextbooks() {
     const { currentUser } = useContext(AuthContext);
     const [renderTrigger, setRenderTrigger] = useState(0);
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const studentEmail = searchParams.get('studentEmail');
     const [showBalanceEdit, setShowBalanceEdit] = useState(false);
     const [newBalance, setNewBalance] = useState('');
     const [balanceEditLoading, setBalanceEditLoading] = useState(false);
     const [balanceEditError, setBalanceEditError] = useState(null);
     const [balanceEditSuccess, setBalanceEditSuccess] = useState(null);
-    const [bookFeedback, setBookFeedback] = useState({});
-    const [feedbackMessage, setFeedbackMessage] = useState({});
 
     const refetchBooks = async () => {
         setLoading(true);
         setError(null);
         try {
             const response = await axios.get('http://localhost:8080/Books/');
-            console.log("BrowseTextbooks: fetchBooks response:", response);
             if (response.data.success) {
                 setBooks(response.data.data);
             } else {
@@ -44,28 +43,11 @@ export default function BrowseTextbooks() {
         }
     };
 
-    const fetchFeedback = async (bookId) => {
-        try {
-            const response = await axios.get(`http://localhost:8080/Forums/feedback/book/${bookId}`);
-            if (response.data && response.data.success) {
-                setBookFeedback({ ...bookFeedback, [bookId]: response.data.data });
-                setFeedbackMessage({ ...feedbackMessage, [bookId]: response.data.data.length === 0 ? "No feedback available." : "" });
-            } else {
-                setFeedbackMessage({ ...feedbackMessage, [bookId]: "Failed to fetch feedback." });
-                console.error("Failed to fetch feedback:", response.data.message);
-            }
-        } catch (err) {
-            setFeedbackMessage({ ...feedbackMessage, [bookId]: "Error fetching feedback." });
-            console.error("Failed to fetch feedback:", err);
-        }
-    };
-
     useEffect(() => {
         const fetchUserBalance = async () => {
             if (currentUser?.email) {
                 try {
                     const response = await axios.get(`http://localhost:8080/Users/balance/email/${currentUser.email}`);
-                    console.log("BrowseTextbooks: fetchUserBalance response:", response);
                     if (response.data.success) {
                         setUserBalance(response.data.data);
                     } else {
@@ -81,7 +63,6 @@ export default function BrowseTextbooks() {
             refetchBooks();
             fetchUserBalance();
         }
-        console.log("BrowseTextbooks, current user: ", currentUser);
         setRenderTrigger(prev => prev + 1);
     }, [currentUser]);
 
@@ -102,17 +83,12 @@ export default function BrowseTextbooks() {
         setPurchaseError(null);
         try {
             if (currentUser?.email) {
-                let purchaseEmail = currentUser.email;
-                if (studentEmail) {
-                    purchaseEmail = studentEmail;
-                }
                 if (userBalance >= price) {
-                    const url = `http://localhost:8080/Books/${bookId}/purchase/email/${purchaseEmail}`;
+                    const url = `http://localhost:8080/Books/${bookId}/purchase/email/${studentEmail}`;
                     const response = await axios.put(url);
-                    console.log("BrowseTextbooks: handleBuy response:", response);
                     if (response.data.success) {
                         setMessage(response.data.message);
-                        setUserBalance(response.data.data);
+                        setUserBalance(prevBalance => prevBalance - price);
                     } else {
                         setPurchaseError(response.data.message);
                     }
@@ -131,7 +107,7 @@ export default function BrowseTextbooks() {
     };
 
     const handleBackToDashboard = () => {
-        router.push('/student-dashboard');
+        router.push('/parent-dashboard');
     };
 
     const handleUpdateBalance = async () => {
@@ -161,11 +137,12 @@ export default function BrowseTextbooks() {
 
     if (loading) return <div className="p-4 flex justify-center items-center"><Spinner /></div>;
     if (error) return <div className="p-4 text-red-600">Error loading textbooks: {error}</div>;
+
     return (
         <div className="min-h-screen bg-gradient-to-r from-orange-500 to-green-500 flex flex-col items-center justify-center p-4">
             <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-4xl">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-semibold text-orange-600">Browse Textbooks</h2>
+                    <h2 className="text-2xl font-semibold text-orange-600">Browse Textbooks For Student</h2>
                     {currentUser?.email && (
                         <div>
                             <p style={{ color: 'red', fontSize: '20px' }}>Your Balance: ${userBalance}</p>
@@ -226,22 +203,6 @@ export default function BrowseTextbooks() {
                                     >
                                         {purchaseLoading ? <Spinner size="sm" /> : "Buy"}
                                     </Button>
-                                    <Button onClick={() => fetchFeedback(book.bookId)} variant="outline" className="mt-2 ml-2">
-                                        View Feedback
-                                    </Button>
-                                    {bookFeedback[book.bookId] && (
-                                        <div className="mt-2">
-                                            <p><strong>Feedback:</strong></p>
-                                            {feedbackMessage[book.bookId] && <p className="text-gray-500">{feedbackMessage[book.bookId]}</p>}
-                                            <ul>
-                                                {bookFeedback[book.bookId].map(fb => (
-                                                    <li key={fb.feedbackId}>
-                                                        {fb.feedback}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
                                     {purchaseError && <p className="text-red-500 mt-1">{purchaseError}</p>}
                                 </td>
                             </tr>

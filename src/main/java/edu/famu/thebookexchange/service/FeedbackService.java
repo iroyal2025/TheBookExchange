@@ -18,15 +18,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 @Service
-public class ForumsService {
+public class FeedbackService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ForumsService.class);
+    private static final Logger logger = LoggerFactory.getLogger(FeedbackService.class);
     private Firestore firestore;
 
     private static final String FORUMS_COLLECTION = "Forums";
+    private static final String FEEDBACK_COLLECTION = "Feedback"; // New collection for feedback
     private static final long FIRESTORE_TIMEOUT = 5; // Timeout in seconds
 
-    public ForumsService() {
+    public FeedbackService() {
         this.firestore = FirestoreClient.getFirestore();
     }
 
@@ -94,6 +95,67 @@ public class ForumsService {
 
         ApiFuture<WriteResult> writeResult = forumRef.update(updatedForumData);
         logger.info("Forum updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
+
+        return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
+    }
+
+    // New methods for feedback
+
+    public String addFeedback(String bookId, String feedback) throws InterruptedException, ExecutionException {
+        logger.info("Adding feedback for book ID: {} with feedback: {}", bookId, feedback);
+
+        Map<String, Object> feedbackData = new HashMap<>();
+        feedbackData.put("bookId", bookId);
+        feedbackData.put("feedback", feedback);
+        feedbackData.put("createdAt", new Timestamp(System.currentTimeMillis())); // Add timestamp
+
+        ApiFuture<DocumentReference> writeResult = firestore.collection(FEEDBACK_COLLECTION).add(feedbackData);
+        DocumentReference rs = writeResult.get();
+        logger.info("Feedback added with ID: {}", rs.getId());
+        return rs.getId();
+    }
+
+    public List<Map<String, Object>> getFeedbackForBook(String bookId) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Retrieving feedback for book ID: {}", bookId);
+
+        CollectionReference feedbackCollection = firestore.collection(FEEDBACK_COLLECTION);
+        Query query = feedbackCollection.whereEqualTo("bookId", bookId);
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
+
+        List<Map<String, Object>> feedbackList = new ArrayList<>();
+        for (QueryDocumentSnapshot document : documents) {
+            if (document.exists()) {
+                Map<String, Object> feedbackData = new HashMap<>();
+                feedbackData.put("feedbackId", document.getId());
+                feedbackData.put("feedback", document.getString("feedback"));
+                feedbackData.put("createdAt", document.getTimestamp("createdAt") != null ? new Timestamp(document.getTimestamp("createdAt").toDate().getTime()) : null);
+                feedbackList.add(feedbackData);
+            }
+        }
+        return feedbackList;
+    }
+
+    public boolean deleteFeedback(String feedbackId) throws ExecutionException, InterruptedException, TimeoutException {
+        try {
+            firestore.collection(FEEDBACK_COLLECTION).document(feedbackId).delete().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+            logger.info("Feedback deleted successfully with ID: {}", feedbackId);
+            return true;
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error deleting feedback with ID: {}", feedbackId, e);
+            throw e;
+        }
+    }
+
+    public String updateFeedback(String feedbackId, String updatedFeedback) throws InterruptedException, ExecutionException, TimeoutException {
+        DocumentReference feedbackRef = firestore.collection(FEEDBACK_COLLECTION).document(feedbackId);
+
+        Map<String, Object> updatedFeedbackData = new HashMap<>();
+        updatedFeedbackData.put("feedback", updatedFeedback);
+        updatedFeedbackData.put("createdAt", new Timestamp(System.currentTimeMillis()));
+
+        ApiFuture<WriteResult> writeResult = feedbackRef.update(updatedFeedbackData);
+        logger.info("Feedback updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
 
         return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
     }

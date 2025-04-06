@@ -327,41 +327,28 @@ public class UsersService {
             }
 
             // Get the parent document
-            QueryDocumentSnapshot parentDoc = documents.get(0); // Assuming only one parent with the given email
+            DocumentSnapshot parentDoc = documents.get(0);
+            DocumentReference parentDocRef = parentDoc.getReference();
 
-            List<String> studentEmails = (List<String>) parentDoc.get("students");
-
-            if (studentEmails == null || studentEmails.isEmpty()) {
-                logger.warn("No students found for parent: {}", parentEmail);
-                return new ArrayList<>();
-            }
+            // Retrieve students from the "students" subcollection
+            ApiFuture<QuerySnapshot> studentsQuery = parentDocRef.collection("students").get();
+            List<QueryDocumentSnapshot> studentDocs = studentsQuery.get().getDocuments();
 
             List<RestUsers> students = new ArrayList<>();
-            for (String studentEmail : studentEmails) {
-                // Query for student documents based on email
-                Query studentQuery = firestore.collection(USERS_COLLECTION).whereEqualTo("email", studentEmail);
-                ApiFuture<QuerySnapshot> studentQuerySnapshot = studentQuery.get();
+            for (QueryDocumentSnapshot studentDoc : studentDocs) {
+                Map<String, Object> data = studentDoc.getData();
 
-                List<QueryDocumentSnapshot> studentDocs = studentQuerySnapshot.get().getDocuments();
+                RestUsers student = new RestUsers();
+                student.setEmail((String) data.get("email"));
+                student.setRole((String) data.get("role"));
+                student.setUserId(studentDoc.getId());
+                student.setMajor((String) data.get("major"));
+                student.setProfilePicture((String) data.get("profilePicture"));
+                student.setActive((Boolean) data.get("isActive"));
+                student.setBalance(((Number) data.get("balance")).doubleValue());
 
-                if (!studentDocs.isEmpty()) {
-                    QueryDocumentSnapshot studentDoc = studentDocs.get(0); // Assuming only one student with the given email
-                    Map<String, Object> data = studentDoc.getData();
-
-                    RestUsers student = new RestUsers();
-                    student.setEmail((String) data.get("email"));
-                    student.setRole((String) data.get("role"));
-                    student.setUserId(studentDoc.getId());
-                    student.setMajor((String) data.get("major"));
-                    student.setProfilePicture((String) data.get("profilePicture"));
-                    student.setActive((Boolean) data.get("isActive"));
-                    student.setBalance(((Number) data.get("balance")).doubleValue());
-
-                    students.add(student);
-                    logger.info("Student added to list: {}", student);
-                } else {
-                    logger.warn("Student document not found: {}", studentEmail);
-                }
+                students.add(student);
+                logger.info("Student added to list: {}", student);
             }
 
             logger.info("Retrieved {} students for parent email: {}", students.size(), parentEmail);

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import edu.famu.thebookexchange.model.Rest.RestBooks;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -159,6 +160,22 @@ public class BooksController {
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
             logger.error("Error removing book: {}", bookTitle, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error removing book", null, e.getMessage()));
+        }
+    }
+
+    @PostMapping("/rate")
+    public ResponseEntity<ApiResponse<String>> rateBook(@RequestBody Map<String, Object> payload) {
+        logger.info("rateBook endpoint was hit");
+        try {
+            String bookTitle = (String) payload.get("bookTitle");
+            String userEmail = (String) payload.get("userEmail");
+            int rating = ((Number) payload.get("rating")).intValue();
+
+            booksService.rateBook(bookTitle, userEmail, rating);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Book rated successfully", null, null));
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error rating book: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error rating book", null, e.getMessage()));
         }
     }
 

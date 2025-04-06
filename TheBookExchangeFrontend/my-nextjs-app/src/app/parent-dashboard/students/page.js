@@ -5,9 +5,10 @@ import { AuthContext } from '../../../context/AuthContext';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { useRouter } from 'next/navigation';
 
 // Assuming you have a layout component like MainLayout
-import MainLayout from '@/components/MainLayout'; // Adjust path as needed
+import MainLayout from '@/components/MainLayout';
 
 export default function ViewStudents() {
     const [students, setStudents] = useState([]);
@@ -24,7 +25,9 @@ export default function ViewStudents() {
     const [addStudentEmail, setAddStudentEmail] = useState('');
     const [addStudentLoading, setAddStudentLoading] = useState(false);
     const [addStudentError, setAddStudentError] = useState(null);
+    const [addStudentSuccess, setAddStudentSuccess] = useState(null);
     const [studentBooks, setStudentBooks] = useState({});
+    const router = useRouter();
 
     useEffect(() => {
         const fetchStudents = async () => {
@@ -57,7 +60,6 @@ export default function ViewStudents() {
         setEditBalanceLoading(true);
         setEditBalanceError(null);
         try {
-            // Corrected URL to use student's email as path variable
             const response = await axios.put(`http://localhost:8080/Users/balance/email/${editBalance.studentId}?balance=${editBalance.balance}`);
 
             if (response.data.success) {
@@ -91,21 +93,20 @@ export default function ViewStudents() {
         }
     };
 
-
     const handleAddStudent = async () => {
         setAddStudentLoading(true);
         setAddStudentError(null);
+        setAddStudentSuccess(null);
         try {
             if (!addStudentEmail.trim()) {
                 setAddStudentError("Please enter a student email.");
-                return; // Stop the function if the input is empty
+                return;
             }
 
-            // Basic email validation using a regular expression
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(addStudentEmail)) {
                 setAddStudentError("Invalid email address.");
-                return; // Stop the function if the email is invalid
+                return;
             }
 
             const response = await axios.post(`http://localhost:8080/Users/students/email/${currentUser.email}/student/${addStudentEmail}`);
@@ -113,16 +114,15 @@ export default function ViewStudents() {
             if (response.data.success) {
                 setStudents([...students, { email: addStudentEmail, balance: 0 }]);
                 setAddStudentEmail('');
+                setAddStudentSuccess("Student added successfully!");
             } else {
-                // Check for specific error messages from the backend
                 if (response.data.message.includes("Student not found")) {
                     setAddStudentError("Student not found.");
                 } else {
-                    setAddStudentError(response.data.message); // Display generic error if no specific message
+                    setAddStudentError(response.data.message);
                 }
             }
         } catch (err) {
-            // Check for 404 error or 500 with "Student not found"
             if (err.response) {
                 if (err.response.status === 404 || (err.response.status === 500 && err.response.data.message.includes("Student not found"))) {
                     setAddStudentError("Student not found.");
@@ -151,15 +151,18 @@ export default function ViewStudents() {
         }
     };
 
+    const handleBuyBookForStudent = (studentEmail) => {
+        router.push(`/parent-dashboard/students/textbooks?studentEmail=${studentEmail}`);
+    };
+
     if (loading) return <div className="p-4 flex justify-center items-center"><Spinner /></div>;
     if (error) return <div className="p-4 text-red-600">Error loading students: {error}</div>;
 
     return (
-        <MainLayout> {/* Wrap with the layout component */}
-            <div className="p-6 space-y-4"> {/* Consistent padding and spacing */}
+        <MainLayout>
+            <div className="p-6 space-y-4">
                 <h2 className="text-2xl font-semibold">View Students</h2>
 
-                {/* Add Student Section */}
                 <div className="mb-4">
                     <h3 className="text-lg font-semibold mb-2">Add Student</h3>
                     <Input type="email" placeholder="Student Email" value={addStudentEmail}
@@ -168,6 +171,7 @@ export default function ViewStudents() {
                         {addStudentLoading ? <Spinner size="sm" /> : "Add Student"}
                     </Button>
                     {addStudentError && <p className="text-red-500 mt-1">{addStudentError}</p>}
+                    {addStudentSuccess && <p className="text-green-500 mt-1">{addStudentSuccess}</p>}
                 </div>
 
                 {students.length > 0 ? (
@@ -191,6 +195,7 @@ export default function ViewStudents() {
                                         <Button onClick={() => handleRemoveStudent(student.email)} disabled={removeLoading === student.email}>
                                             {removeLoading === student.email ? <Spinner size="sm" /> : "Remove"}
                                         </Button>
+                                        <Button onClick={() => handleBuyBookForStudent(student.email)} className="ml-2">Buy Book</Button>
                                     </td>
                                     <td className="p-2">
                                         <Button onClick={() => fetchStudentBooks(student.email)}>View Books</Button>
