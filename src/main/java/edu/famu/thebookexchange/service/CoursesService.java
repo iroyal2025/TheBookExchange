@@ -193,6 +193,9 @@ public class CoursesService {
                     ownedBy = new ArrayList<>();
                 }
 
+                String userIdStr = bookDocument.getString("userId");
+                String courseIdStr = bookDocument.getString("courseId");
+
                 RestBooks book = new RestBooks(
                         bookDocument.getString("title"),
                         bookDocument.getString("author"),
@@ -205,8 +208,8 @@ public class CoursesService {
                         bookDocument.getString("digitalCopyPath"),
                         bookId,
                         ownedBy,
-                        bookDocument.get("userId", DocumentReference.class),
-                        bookDocument.get("courseId", DocumentReference.class),
+                        userIdStr,
+                        courseIdStr,
                         bookDocument.getDouble("rating") != null ? bookDocument.getDouble("rating") : 0.0,
                         bookDocument.getLong("ratingCount") != null ? bookDocument.getLong("ratingCount") : 0
                 );

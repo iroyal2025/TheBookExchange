@@ -45,6 +45,9 @@ public class BooksService {
                     ownedBy = new ArrayList<>();
                 }
 
+                String userIdStr = document.getString("userId");
+                String courseIdStr = document.getString("courseId");
+
                 RestBooks book = new RestBooks(
                         document.getString("title"),
                         document.getString("author"),
@@ -57,15 +60,14 @@ public class BooksService {
                         document.getString("digitalCopyPath"),
                         bookId,
                         ownedBy,
-                        document.get("userId", DocumentReference.class),
-                        document.get("courseId", DocumentReference.class),
+                        userIdStr,
+                        courseIdStr,
                         document.getDouble("rating") != null ? document.getDouble("rating") : 0.0,
                         document.getLong("ratingCount") != null ? document.getLong("ratingCount") : 0
                 );
                 books.add(book);
             }
         }
-
         return books;
     }
 
@@ -190,6 +192,8 @@ public class BooksService {
     public RestBooks getBookById(String bookId) throws InterruptedException, ExecutionException, TimeoutException {
         DocumentSnapshot document = getBookDocumentSnapshot(bookId);
         if (document.exists()) {
+            String userIdStr = document.getString("userId");
+            String courseIdStr = document.getString("courseId");
             return new RestBooks(
                     document.getString("title"),
                     document.getString("author"),
@@ -202,8 +206,8 @@ public class BooksService {
                     document.getString("digitalCopyPath"),
                     bookId,
                     (List<String>) document.get("ownedBy"),
-                    document.get("userId", DocumentReference.class),
-                    document.get("courseId", DocumentReference.class),
+                    userIdStr,
+                    courseIdStr,
                     document.getDouble("rating") != null ? document.getDouble("rating") : 0.0,
                     document.getLong("ratingCount") != null ? document.getLong("ratingCount") : 0
             );
@@ -228,6 +232,8 @@ public class BooksService {
                 logger.debug("Document ID: {}, Data: {}", document.getId(), document.getData());
 
                 String bookId = document.getId();
+                String userIdStr = document.getString("userId");
+                String courseIdStr = document.getString("courseId");
                 RestBooks book = new RestBooks(
                         document.getString("title"),
                         document.getString("author"),
@@ -240,8 +246,8 @@ public class BooksService {
                         document.getString("digitalCopyPath"),
                         bookId,
                         (List<String>) document.get("ownedBy"),
-                        document.get("userId", DocumentReference.class),
-                        document.get("courseId", DocumentReference.class),
+                        userIdStr,
+                        courseIdStr,
                         document.getDouble("rating") != null ? document.getDouble("rating") : 0.0,
                         document.getLong("ratingCount") != null ? document.getLong("ratingCount") : 0
                 );
@@ -308,6 +314,8 @@ public class BooksService {
                 if (ownedBy == null) {
                     ownedBy = new ArrayList<>();
                 }
+                String userIdStr = bookDocument.getString("userId");
+                String courseIdStr = bookDocument.getString("courseId");
 
                 RestBooks book = new RestBooks(
                         bookDocument.getString("title"),
@@ -321,8 +329,8 @@ public class BooksService {
                         bookDocument.getString("digitalCopyPath"),
                         bookId,
                         ownedBy,
-                        bookDocument.get("userId", DocumentReference.class),
-                        bookDocument.get("courseId", DocumentReference.class),
+                        userIdStr,
+                        courseIdStr,
                         bookDocument.getDouble("rating") != null ? bookDocument.getDouble("rating") : 0.0,
                         bookDocument.getLong("ratingCount") != null ? bookDocument.getLong("ratingCount") : 0
                 );

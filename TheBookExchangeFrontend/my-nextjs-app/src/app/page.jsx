@@ -49,6 +49,8 @@ export default function Login() {
                 router.push('/student-dashboard');
             } else if (role === 'parent') {
                 router.push('/parent-dashboard');
+            } else if (role === 'seller') {
+                router.push('/seller-dashboard');
             } else {
                 router.push('/dashboard');
             }
@@ -131,6 +133,7 @@ export default function Login() {
                             <option value="student">Student</option>
                             <option value="parent">Parent</option>
                             <option value="teacher">Teacher</option>
+                            <option value="seller">Seller</option> {/* Added Seller option */}
                         </select>
                         <input
                             type="text"
