@@ -13,11 +13,12 @@ export default function ParentDashboard() {
     };
 
     const handleLogout = () => {
-        // Clear authentication data (if any)
         localStorage.removeItem('authToken'); // Or whatever your auth token is called
-
-        // Redirect to the login page (root of your app)
         router.push('/');
+    };
+
+    const handleProfileClick = () => {
+        handleTabClick('profile'); // Use the existing tab navigation logic
     };
 
     return (
@@ -26,13 +27,20 @@ export default function ParentDashboard() {
                 <h2 className="text-4xl font-bold text-orange-600 mb-6">Parent Dashboard</h2>
                 <img src="/Book Exchange side photo.jpg" alt="Book Exchange side photo" className="w-48 mx-auto mb-6" />
 
-                <div className="flex justify-center mb-8">
+                <div className="flex justify-center mb-8 space-x-4">
                     <Button
                         variant={activeTab === 'students' ? 'default' : 'outline'}
-                        className={`mr-4 ${activeTab === 'students' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
+                        className={`${activeTab === 'students' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-orange-600'}`}
                         onClick={() => handleTabClick('students')}
                     >
                         View Students
+                    </Button>
+                    <Button
+                        variant={activeTab === 'profile' ? 'default' : 'outline'}
+                        className={`${activeTab === 'profile' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-blue-600'}`}
+                        onClick={handleProfileClick}
+                    >
+                        Profile
                     </Button>
                 </div>
 

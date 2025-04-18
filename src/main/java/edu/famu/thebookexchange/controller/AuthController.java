@@ -38,7 +38,7 @@ public class AuthController {
     @PostMapping("/verify")
     public ResponseEntity<?> verify(@RequestParam(value = "email", required = true) String email,
                                     @RequestParam(value = "password", required = true) String password) {
-        logger.info("Received Email (Insecure): {}", email);
+        logger.info("Received Email (Plain Text): {}", email);
 
         try {
             Query query = firebaseUserDetailsService.getFirestore().collection(USERS_COLLECTION).whereEqualTo("email", email);
@@ -47,22 +47,29 @@ public class AuthController {
 
             if (!documents.isEmpty()) {
                 QueryDocumentSnapshot document = documents.get(0);
+                String storedPassword = document.getString("password");
                 Boolean isActive = document.getBoolean("isActive");
+
                 if (isActive == null || !isActive) {
                     logger.warn("User account is disabled for email: {}", email);
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User account is disabled.");
                 }
 
-                String role = firebaseUserDetailsService.getUserRoleByEmail(email);
-
-                if (role != null) {
-                    Map<String, String> response = new HashMap<>();
-                    response.put("email", email); // Return email instead of userId
-                    response.put("role", role);
-                    return ResponseEntity.ok(response);
+                // Directly compare the plain text passwords
+                if (storedPassword != null && password.equals(storedPassword)) {
+                    String role = document.getString("role");
+                    if (role != null) {
+                        Map<String, String> response = new HashMap<>();
+                        response.put("email", email);
+                        response.put("role", role);
+                        return ResponseEntity.ok(response);
+                    } else {
+                        logger.warn("Role not found for Email: {}", email);
+                        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role not found.");
+                    }
                 } else {
-                    logger.warn("Role not found for Email: {}", email);
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Role not found.");
+                    logger.warn("Invalid password for email: {}", email);
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials.");
                 }
 
             } else {
@@ -71,7 +78,7 @@ public class AuthController {
             }
 
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error verifying role and isActive for email: {}", email, e);
+            logger.error("Error verifying credentials for email: {}", email, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal server error.");
         }
     }

@@ -79,10 +79,9 @@ export default function Login() {
             });
 
             if (response.data.success) {
-                setSuccessMessage('Account created successfully! You will be logged in.'); // Set success message
-                setTimeout(() => {
-                    handleLogin(e);
-                }, 2000); // login user after 2 seconds
+                setSuccessMessage('Account created successfully! Please log in.'); // Updated success message
+                setIsCreatingAccount(false); // Go back to the login form
+                // No need to call handleLogin immediately
             } else {
                 setError(response.data.message);
             }

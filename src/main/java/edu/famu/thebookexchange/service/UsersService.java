@@ -17,20 +17,20 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Collectors;
 
 @Service
 public class UsersService {
 
     private static final Logger logger = LoggerFactory.getLogger(UsersService.class);
     private Firestore firestore;
-    private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final BCryptPasswordEncoder passwordEncoder;
 
     private static final String USERS_COLLECTION = "Users";
     private static final long FIRESTORE_TIMEOUT = 5;
 
     public UsersService() {
         this.firestore = FirestoreClient.getFirestore();
+        this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
     public List<RestUsers> getAllUsers() throws InterruptedException, ExecutionException, TimeoutException {
@@ -65,7 +65,7 @@ public class UsersService {
 
         Map<String, Object> userData = new HashMap<>();
         userData.put("email", user.getEmail());
-        userData.put("password", passwordEncoder.encode(user.getPassword()));
+        userData.put("password", user.getPassword()); // Store password in plain text
         userData.put("major", user.getMajor());
         userData.put("profilePicture", user.getProfilePicture());
         userData.put("role", user.getRole());
@@ -127,7 +127,7 @@ public class UsersService {
             updatedUserData.put("balance", updatedUser.getBalance());
 
             if (updatedUser.getPassword() != null && !updatedUser.getPassword().isEmpty()) {
-                updatedUserData.put("password", passwordEncoder.encode(updatedUser.getPassword()));
+                updatedUserData.put("password", updatedUser.getPassword());;
             }
             updatedUserData.put("isActive", updatedUser.isActive());
 
@@ -360,4 +360,42 @@ public class UsersService {
         }
     }
 
+    public String getUserIdByEmail(String email) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Retrieving userId for email: {}", email);
+        Query query = firestore.collection(USERS_COLLECTION).whereEqualTo("email", email).limit(1);
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
+
+        if (!documents.isEmpty()) {
+            return documents.get(0).getId();
+        } else {
+            logger.warn("No user found with email: {}", email);
+            return null;
+        }
+    }
+    public String updateUserEmail(String userId, String newEmail) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Updating email for user with userId: {} to: {}", userId, newEmail);
+        try {
+            DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
+            ApiFuture<WriteResult> writeResult = userRef.update("email", newEmail);
+            logger.info("User email updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
+            return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
+        } catch (Exception e) {
+            logger.error("Error updating user email: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    public String updateUserPassword(String userId, String newPassword) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.warn("Updating password in Firestore to the raw");
+        try {
+            DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
+            ApiFuture<WriteResult> writeResult = userRef.update("password", newPassword); // Directly set the raw password
+            logger.info("User password updated in Firestore at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
+            return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
+        } catch (Exception e) {
+            logger.error("Error updating user password in Firestore: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
 }

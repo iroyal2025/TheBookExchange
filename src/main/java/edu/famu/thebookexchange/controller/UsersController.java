@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map; // Import the Map class
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -102,6 +103,38 @@ public class UsersController {
         }
     }
 
+    @PutMapping("/{userId}/email")
+    public ResponseEntity<ApiResponse<String>> updateUserEmail(@PathVariable String userId, @RequestBody Map<String, String> requestBody) {
+        logger.info("Received PUT request to /Users/{}/email with data: {}", userId, requestBody);
+        String newEmail = requestBody.get("email");
+        if (newEmail == null || newEmail.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "Invalid request", null, "Email cannot be empty"));
+        }
+        try {
+            String updateTime = userService.updateUserEmail(userId, newEmail);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Email updated successfully", updateTime, null));
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error updating user email: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error updating user email", null, e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{userId}/password")
+    public ResponseEntity<ApiResponse<String>> updateUserPassword(@PathVariable String userId, @RequestBody Map<String, String> requestBody) {
+        logger.warn("Received PUT request to /Users/{}/password - Storing RAW PASSWORD!", userId);
+        String newPassword = requestBody.get("newPassword");
+        if (newPassword == null || newPassword.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "Invalid request", null, "New password cannot be empty"));
+        }
+        try {
+            String updateTime = userService.updateUserPassword(userId, newPassword);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Password updated successfully", updateTime, null)); // Updated message
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error updating user password: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error updating user password", null, e.getMessage()));
+        }
+    }
+
     @PutMapping("/{userId}/activate")
     public ResponseEntity<ApiResponse<Boolean>> activateUser(@PathVariable String userId) {
         logger.info("Received PUT request to /Users/{}/activate", userId);
@@ -190,5 +223,19 @@ public class UsersController {
         }
     }
 
-
+    @GetMapping("/id/email/{email}")
+    public ResponseEntity<ApiResponse<String>> getUserIdByEmail(@PathVariable String email) {
+        logger.info("Received GET request to /Users/id/email/{}", email);
+        try {
+            String userId = userService.getUserIdByEmail(email);
+            if (userId != null) {
+                return ResponseEntity.ok(new ApiResponse<>(true, "User ID found", userId, null));
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "User not found", null, "No user found with email: " + email));
+            }
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error retrieving user ID by email: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving user ID", null, e.getMessage()));
+        }
+    }
 }

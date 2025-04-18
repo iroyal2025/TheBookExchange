@@ -102,10 +102,7 @@ export default function BrowseTextbooks() {
         setPurchaseError(null);
         try {
             if (currentUser?.email) {
-                let purchaseEmail = currentUser.email;
-                if (studentEmail) {
-                    purchaseEmail = studentEmail;
-                }
+                const purchaseEmail = currentUser.email;
                 if (userBalance >= price) {
                     const url = `http://localhost:8080/Books/${bookId}/purchase/email/${purchaseEmail}`;
                     const response = await axios.put(url);

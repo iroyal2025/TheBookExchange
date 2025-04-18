@@ -8,9 +8,12 @@ export default function ManageUsers() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isAdding, setIsAdding] = useState(false);
-    const [newUser, setNewUser] = useState({email: '', password: '', role: '', major: '', profilePicture: ''});
+    const [newUser, setNewUser] = useState({ email: '', password: '', role: '', major: '', profilePicture: '' });
     const [isEditing, setIsEditing] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
+    const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+    const [passwordUpdateUser, setPasswordUpdateUser] = useState(null);
+    const [newPassword, setNewPassword] = useState('');
     const [message, setMessage] = useState(null);
     const router = useRouter();
 
@@ -63,7 +66,7 @@ export default function ManageUsers() {
             if (response.data.success) {
                 fetchUsers();
                 setIsAdding(false);
-                setNewUser({email: '', password: '', role: '', major: '', profilePicture: ''});
+                setNewUser({ email: '', password: '', role: '', major: '', profilePicture: '' });
                 setMessage("User added successfully.");
             } else {
                 setError(response.data.message);
@@ -133,6 +136,46 @@ export default function ManageUsers() {
         }
     };
 
+    const handleUpdatePasswordRequest = (user) => {
+        setPasswordUpdateUser(user);
+        setIsUpdatingPassword(true);
+        setNewPassword('');
+    };
+
+    const handleUpdatePassword = async () => {
+        if (!passwordUpdateUser?.userId) {
+            setError("User ID for password update is missing.");
+            return;
+        }
+        if (!newPassword) {
+            setError("New password cannot be empty.");
+            return;
+        }
+        try {
+            const response = await axios.put(
+                `http://localhost:8080/Users/${passwordUpdateUser.userId}/password`,
+                { newPassword: newPassword } // Changed key to 'newPassword'
+            );
+            if (response.data.success) {
+                fetchUsers();
+                setIsUpdatingPassword(false);
+                setPasswordUpdateUser(null);
+                setNewPassword('');
+                setMessage("User password updated successfully.");
+            } else {
+                setError(response.data.message);
+            }
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const handleCancelPasswordUpdate = () => {
+        setIsUpdatingPassword(false);
+        setPasswordUpdateUser(null);
+        setNewPassword('');
+    };
+
     const handleBackToDashboard = () => {
         router.push('/admin-dashboard');
     };
@@ -186,9 +229,8 @@ export default function ManageUsers() {
                             <tr key={user.userId}>
                                 <td className="border p-2">{user.email}</td>
                                 <td className="border p-2">{user.role}</td>
-                                <td className="border p-2 flex justify-center"> {/* Added justify-center */}
-                                    <div
-                                        className="flex flex-wrap justify-center gap-1"> {/* Added flex-wrap and justify-center to the div */}
+                                <td className="border p-2 flex justify-center">
+                                    <div className="flex flex-wrap justify-center gap-1">
                                         <button onClick={() => handleEdit(user)}
                                                 className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded">Edit
                                         </button>
@@ -201,8 +243,15 @@ export default function ManageUsers() {
                                             {user.isActive ? 'Deactivate' : 'Activate'}
                                         </button>
                                         <button
-                                            className="bg-orange-500 hover:bg-orange-700 text-white font-bold py-1 px-2 rounded mr-2"
+
+                                            className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded mr-2"
+
                                             onClick={() => handleDeactivate(user)}>Deactivate
+
+                                        </button>
+                                        <button
+                                            className="bg-orange-500 hover:bg-orange-700 text-white font-bold py-1 px-2 rounded"
+                                            onClick={() => handleUpdatePasswordRequest(user)}>Reset Password
                                         </button>
                                     </div>
                                 </td>
@@ -227,6 +276,23 @@ export default function ManageUsers() {
                             <input type="text" placeholder="Profile Picture URL" value={editingUser.profilePicture} onChange={e => setEditingUser({ ...editingUser, profilePicture: e.target.value })} className="border p-2 rounded" />
                             <button onClick={handleUpdateUser} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Update</button>
                             <button onClick={() => setIsEditing(false)} className="bg-gray-400 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">Cancel</button>
+                        </div>
+                    </div>
+                )}
+
+                {isUpdatingPassword && passwordUpdateUser && (
+                    <div className="mt-4">
+                        <h3 className="text-lg font-semibold mb-2">Reset Password for {passwordUpdateUser.email}</h3>
+                        <div className="flex flex-col gap-2">
+                            <input
+                                type="password"
+                                placeholder="New Password"
+                                value={newPassword}
+                                onChange={e => setNewPassword(e.target.value)}
+                                className="border p-2 rounded"
+                            />
+                            <button onClick={handleUpdatePassword} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Update Password</button>
+                            <button onClick={handleCancelPasswordUpdate} className="bg-gray-400 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">Cancel</button>
                         </div>
                     </div>
                 )}
