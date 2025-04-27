@@ -7,8 +7,9 @@ import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { toast } from 'react-hot-toast';
 
 export default function MyBooks({ onRatingSubmitted }) { // Add onRatingSubmitted prop
     const [ownedBooks, setOwnedBooks] = useState([]);
@@ -21,10 +22,15 @@ export default function MyBooks({ onRatingSubmitted }) { // Add onRatingSubmitte
     const [reportDescription, setReportDescription] = useState('');
     const [reportError, setReportError] = useState(null);
     const [reportSuccess, setReportSuccess] = useState(null);
-    const [ratingModalOpen, setRatingModalOpen] = useState(false);
+    const [ratingBookModalOpen, setRatingBookModalOpen] = useState(false);
     const [ratingBookTitle, setRatingBookTitle] = useState('');
     const [bookRating, setBookRating] = useState(5);
-    const [ratingSuccess, setRatingSuccess] = useState(null);
+    const [ratingBookSuccess, setRatingBookSuccess] = useState(null);
+    const [rateSellerModalOpen, setRateSellerModalOpen] = useState(false);
+    const [ratingSellerEmail, setRatingSellerEmail] = useState('');
+    const [sellerRating, setSellerRating] = useState(5);
+    const [rateSellerSuccessMessage, setRateSellerSuccessMessage] = useState(null);
+    const [rateSellerError, setRateSellerError] = useState(null);
 
     useEffect(() => {
         if (!loading) {
@@ -66,10 +72,12 @@ export default function MyBooks({ onRatingSubmitted }) { // Add onRatingSubmitte
         setReportError(null);
         setReportSuccess(null);
         try {
-            const response = await axios.post('http://localhost:8080/Reports/add', {
-                bookTitle: reportBookTitle,
+            const response = await axios.post('http://localhost:8080/Reports/add/book', { // Changed endpoint
+                reportedBy: currentUser.email, // Add reportedBy here
                 userEmail: currentUser.email,
+                bookTitle: reportBookTitle,
                 content: reportDescription,
+                reportType: "book", // Explicitly set reportType (though the endpoint should handle this)
             });
             if (response.data) {
                 setReportSuccess('Report submitted successfully!');
@@ -93,15 +101,41 @@ export default function MyBooks({ onRatingSubmitted }) { // Add onRatingSubmitte
                 userEmail: currentUser.email,
                 rating: bookRating,
             });
-            setRatingModalOpen(false);
+            setRatingBookModalOpen(false);
             setBookRating(5);
-            setRatingSuccess('Rating submitted successfully!');
-            setTimeout(() => setRatingSuccess(null), 5000);
+            setRatingBookSuccess('Book rating submitted successfully!');
+            setTimeout(() => setRatingBookSuccess(null), 5000);
             if (onRatingSubmitted) { // Call the prop function
                 onRatingSubmitted();
             }
         } catch (error) {
             console.error('Error rating book:', error);
+        }
+    };
+
+    const handleRateSellerSubmit = async () => {
+        setRateSellerError(null);
+        try {
+            const response = await axios.post('http://localhost:8080/Users/rate/seller', {
+                sellerEmail: ratingSellerEmail,
+                raterEmail: currentUser.email,
+                rating: sellerRating,
+            });
+            if (response.data.success) {
+                toast.success('Seller rated successfully!');
+                setRateSellerSuccessMessage('Seller rated successfully!');
+                setRateSellerModalOpen(false);
+                setSellerRating(5);
+                // Refetch books to update the displayed seller rating
+                if (onRatingSubmitted) {
+                    onRatingSubmitted();
+                }
+            } else {
+                setRateSellerError(response.data.message || 'Failed to rate seller.');
+            }
+        } catch (error) {
+            console.error('Error rating seller:', error);
+            setRateSellerError('An error occurred while rating the seller.');
         }
     };
 
@@ -114,9 +148,14 @@ export default function MyBooks({ onRatingSubmitted }) { // Add onRatingSubmitte
                     {reportSuccess}
                 </div>
             )}
-            {ratingSuccess && (
+            {ratingBookSuccess && (
                 <div className="fixed top-12 left-1/2 transform -translate-x-1/2 bg-green-500 text-white p-4 rounded-md z-50">
-                    {ratingSuccess}
+                    {ratingBookSuccess}
+                </div>
+            )}
+            {rateSellerSuccessMessage && (
+                <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-green-500 text-white p-4 rounded-md z-50">
+                    {rateSellerSuccessMessage}
                 </div>
             )}
             <div className="bg-white p-10 rounded-2xl shadow-2xl text-center w-full max-w-4xl">
@@ -132,13 +171,28 @@ export default function MyBooks({ onRatingSubmitted }) { // Add onRatingSubmitte
                                     <div><strong className="text-blue-600">Author:</strong> {book.author}</div>
                                     <div><strong className="text-blue-600">Edition:</strong> {book.edition}</div>
                                     <div><strong className="text-blue-600">ISBN:</strong> {book.isbn}</div>
-                                    <div><strong className="text-blue-600">UserID:</strong> {book.userId}</div>
-                                    <div><strong className="text-blue-600">CourseID:</strong> {book.courseId}</div>
+                                    <div><strong className="text-blue-600">Seller ID:</strong> {book.userId}</div>
+                                    <div><strong className="text-blue-600">Course ID:</strong> {book.courseId}</div>
                                     <div><strong className="text-blue-600">Digital:</strong> {book.digital ? 'Yes' : 'No'}</div>
+                                    {book.sellerRating !== undefined && book.sellerRating !== null && (
+                                        <div>
+                                            <strong className="text-green-600">Seller Rating:</strong> {book.sellerRating.toFixed(2)} ({book.sellerRatingCount || 0} ratings)
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="mt-4 flex justify-between">
                                     <Button onClick={() => { setReportBookTitle(book.title); setReportModalOpen(true); }}>Report Issue</Button>
-                                    <Button onClick={() => { setRatingBookTitle(book.title); setRatingModalOpen(true); }}>Rate Book</Button>
+                                    <Button onClick={() => { setRatingBookTitle(book.title); setRatingBookModalOpen(true); }}>Rate Book</Button>
+                                    <Button
+                                        onClick={() => {
+                                            setRatingSellerEmail(book.userId); // Assuming book.userId is the seller's email
+                                            setRateSellerModalOpen(true);
+                                        }}
+                                        variant="outline"
+                                        className="ml-2"
+                                    >
+                                        Rate Seller
+                                    </Button>
                                 </div>
                             </li>
                         ))}
@@ -186,9 +240,9 @@ export default function MyBooks({ onRatingSubmitted }) { // Add onRatingSubmitte
             </Dialog>
 
             <Dialog
-                open={ratingModalOpen}
+                open={ratingBookModalOpen}
                 onOpenChange={(open) => {
-                    setRatingModalOpen(open);
+                    setRatingBookModalOpen(open);
                     if (open) {
                         setBookRating(5);
                     }
@@ -223,6 +277,33 @@ export default function MyBooks({ onRatingSubmitted }) { // Add onRatingSubmitte
                     </div>
                     <div className="flex justify-end">
                         <Button type="button" onClick={handleRateBook}>Submit Rating</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Rate Seller Modal */}
+            <Dialog open={rateSellerModalOpen} onOpenChange={setRateSellerModalOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Rate Seller</DialogTitle>
+                        <DialogDescription>
+                            Please rate the seller: {ratingSellerEmail}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Slider
+                                value={[sellerRating]}
+                                max={5}
+                                step={1}
+                                onValueChange={(value) => setSellerRating(value[0])}
+                            />
+                            <p>Rating: {sellerRating} / 5</p>
+                        </div>
+                    </div>
+                    {rateSellerError && <p className="text-red-500 mt-2">{rateSellerError}</p>}
+                    <div className="flex justify-end">
+                        <Button type="button" onClick={handleRateSellerSubmit}>Submit Rating</Button>
                     </div>
                 </DialogContent>
             </Dialog>

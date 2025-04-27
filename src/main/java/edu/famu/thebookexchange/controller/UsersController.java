@@ -238,4 +238,20 @@ public class UsersController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving user ID", null, e.getMessage()));
         }
     }
+
+    @PostMapping("/rate/seller")
+    public ResponseEntity<ApiResponse<String>> rateSeller(@RequestBody Map<String, Object> payload) {
+        logger.info("rateSeller endpoint was hit");
+        try {
+            String sellerId = (String) payload.get("sellerEmail"); // Frontend is sending seller's User ID as sellerEmail
+            String raterEmail = (String) payload.get("raterEmail"); // Email of the user doing the rating
+            int rating = ((Number) payload.get("rating")).intValue();
+
+            userService.rateSeller(sellerId, raterEmail, rating); // Updated to use sellerId
+            return ResponseEntity.ok(new ApiResponse<>(true, "Seller rated successfully", null, null));
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error rating seller: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error rating seller", null, e.getMessage()));
+        }
+    }
 }

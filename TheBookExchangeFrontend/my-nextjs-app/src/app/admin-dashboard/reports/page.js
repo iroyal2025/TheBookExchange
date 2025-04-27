@@ -30,7 +30,7 @@ export default function ReportsPage() {
     const handleDeleteReport = async (content) => {
         try {
             await axios.delete(`http://localhost:8080/Reports/delete?content=${content}`);
-            setReports(reports.filter(report => report.content !== content));
+            setReports(reports.filter(report => report.description !== content));
             setDeleteSuccess("Report successfully deleted!");
             setTimeout(() => setDeleteSuccess(null), 3000); // Clear after 3 seconds
         } catch (err) {
@@ -63,15 +63,16 @@ export default function ReportsPage() {
 
                 {reports.length > 0 ? (
                     <ul className="space-y-4">
-                        {reports.map((report) => (
-                            <li key={report.content} className="border p-4 rounded-lg shadow-md">
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div><strong className="text-blue-600">Book Title:</strong> {report.bookTitle}</div>
-                                    <div><strong className="text-blue-600">User Email:</strong> {report.userEmail}</div>
-                                    <div><strong className="text-blue-600">Content:</strong> {report.content}</div>
+                        {reports.map((report, index) => (
+                            <li key={index} className="border p-4 rounded-lg shadow-md">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {report.bookTitle && <div><strong className="text-blue-600">Book Title:</strong> {report.bookTitle}</div>}
+                                    {report.submittedByEmail && <div><strong className="text-blue-600">Reported By:</strong> {report.submittedByEmail}</div>}
+                                    {report.sellerEmail && <div><strong className="text-blue-600">Seller Email:</strong> {report.sellerEmail}</div>}
+                                    <div><strong className="text-blue-600">Description:</strong> {report.description}</div>
                                 </div>
                                 <div className="mt-4">
-                                    <Button onClick={() => handleDeleteReport(report.content)} className="bg-red-500 text-white hover:bg-red-600">
+                                    <Button onClick={() => handleDeleteReport(report.description)} className="bg-red-500 text-white hover:bg-red-600">
                                         Delete Report
                                     </Button>
                                 </div>

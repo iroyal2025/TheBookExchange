@@ -51,13 +51,37 @@ public class UsersService {
                         document.getString("role"),
                         userId,
                         document.getBoolean("isActive") != null ? document.getBoolean("isActive") : true,
-                        document.getDouble("balance") != null ? document.getDouble("balance") : 0.0
+                        document.getDouble("balance") != null ? document.getDouble("balance") : 0.0,
+                        document.getDouble("sellerRating"), // Fetch sellerRating
+                        document.getLong("sellerRatingCount") // Fetch sellerRatingCount
                 );
                 users.add(user);
             }
         }
-
         return users;
+    }
+
+    public RestUsers getUserByEmail(String email) throws InterruptedException, ExecutionException, TimeoutException {
+        Query query = firestore.collection(USERS_COLLECTION).whereEqualTo("email", email).limit(1);
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+        List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
+
+        if (!documents.isEmpty()) {
+            QueryDocumentSnapshot document = documents.get(0);
+            return new RestUsers(
+                    document.getString("email"),
+                    document.getString("password"),
+                    document.getString("major"),
+                    document.getString("profilePicture"),
+                    document.getString("role"),
+                    document.getId(),
+                    document.getBoolean("isActive") != null ? document.getBoolean("isActive") : true,
+                    document.getDouble("balance") != null ? document.getDouble("balance") : 0.0,
+                    document.getDouble("sellerRating"), // Fetch sellerRating
+                    document.getLong("sellerRatingCount") // Fetch sellerRatingCount
+            );
+        }
+        return null;
     }
 
     public String addUser(RestUsers user) throws InterruptedException, ExecutionException {
@@ -71,6 +95,8 @@ public class UsersService {
         userData.put("role", user.getRole());
         userData.put("isActive", true);
         userData.put("balance", 0.0); // Initialize balance to 0
+        userData.put("sellerRating", 0.0); // Initialize sellerRating
+        userData.put("sellerRatingCount", 0L); // Initialize sellerRatingCount
 
         ApiFuture<DocumentReference> writeResult = firestore.collection(USERS_COLLECTION).add(userData);
         DocumentReference rs = writeResult.get();
@@ -125,6 +151,8 @@ public class UsersService {
             updatedUserData.put("profilePicture", updatedUser.getProfilePicture());
             updatedUserData.put("role", updatedUser.getRole());
             updatedUserData.put("balance", updatedUser.getBalance());
+            updatedUserData.put("sellerRating", updatedUser.getSellerRating());
+            updatedUserData.put("sellerRatingCount", updatedUser.getSellerRatingCount());
 
             if (updatedUser.getPassword() != null && !updatedUser.getPassword().isEmpty()) {
                 updatedUserData.put("password", updatedUser.getPassword());;
@@ -346,6 +374,8 @@ public class UsersService {
                 student.setProfilePicture((String) data.get("profilePicture"));
                 student.setActive((Boolean) data.get("isActive"));
                 student.setBalance(((Number) data.get("balance")).doubleValue());
+                student.setSellerRating(null); // Students typically don't have a seller rating
+                student.setSellerRatingCount(null); // Students typically don't have a seller rating count
 
                 students.add(student);
                 logger.info("Student added to list: {}", student);
@@ -395,6 +425,36 @@ public class UsersService {
             return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
         } catch (Exception e) {
             logger.error("Error updating user password in Firestore: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    public void rateSeller(String sellerId, String raterEmail, int rating) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Rating seller with ID: {} by rater: {} with rating: {}", sellerId, raterEmail, rating);
+
+        try {
+            DocumentReference sellerRef = firestore.collection(USERS_COLLECTION).document(sellerId);
+            ApiFuture<DocumentSnapshot> userSnapshotFuture = sellerRef.get();
+            DocumentSnapshot sellerDoc = userSnapshotFuture.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+            if (sellerDoc.exists()) {
+                double currentRating = sellerDoc.getDouble("sellerRating") != null ? sellerDoc.getDouble("sellerRating") : 0.0;
+                long currentRatingCount = sellerDoc.getLong("sellerRatingCount") != null ? sellerDoc.getLong("sellerRatingCount") : 0;
+                double newRating = (currentRating * currentRatingCount + rating) / (currentRatingCount + 1);
+                long newRatingCount = currentRatingCount + 1;
+
+                Map<String, Object> updatedSellerData = new HashMap<>();
+                updatedSellerData.put("sellerRating", newRating);
+                updatedSellerData.put("sellerRatingCount", newRatingCount);
+
+                sellerRef.update(updatedSellerData).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+                logger.info("Seller rating updated successfully for seller ID: {}", sellerId);
+            } else {
+                logger.warn("Seller not found for rating with ID: {}", sellerId);
+            }
+        } catch (Exception e) {
+            logger.error("Error rating seller: {}", e.getMessage(), e);
             throw e;
         }
     }

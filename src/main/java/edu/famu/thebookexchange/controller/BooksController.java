@@ -29,23 +29,23 @@ public class BooksController {
         this.usersService = usersService;
     }
 
+
     @GetMapping("/")
-    public ResponseEntity<ApiResponse<List<RestBooks>>> getAllBooks() {
-        logger.info("getAllBooks endpoint was hit");
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllBooksWithSellerRating() {
+        logger.info("getAllBooksWithSellerRating endpoint was hit");
         try {
-            List<RestBooks> books = booksService.getAllBooks();
-            logger.debug("Retrieved books: {}", books); // Log the retrieved books
-            if (!books.isEmpty()) {
-                return ResponseEntity.ok(new ApiResponse<>(true, "Books retrieved successfully", books, null));
+            List<Map<String, Object>> booksWithSellerRating = booksService.getAllBooksWithSellerRating();
+            logger.debug("Retrieved books with seller rating: {}", booksWithSellerRating);
+            if (!booksWithSellerRating.isEmpty()) {
+                return ResponseEntity.ok(new ApiResponse<>(true, "Books retrieved successfully with seller rating", booksWithSellerRating, null));
             } else {
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(new ApiResponse<>(true, "No books found", null, null));
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error retrieving books: {}", e.getMessage(), e);
+            logger.error("Error retrieving books with seller rating: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving books", null, e.getMessage()));
         }
     }
-
     @PostMapping("/add")
     public ResponseEntity<ApiResponse<String>> addBook(@RequestBody RestBooks book) {
         logger.info("addBook endpoint was hit");
@@ -54,10 +54,17 @@ public class BooksController {
             String bookId = booksService.addBook(book);
             logger.debug("Book added with ID: {}", bookId); // Log the added book ID
             return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(true, "Book added successfully", bookId, null));
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error adding book: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error adding book", null, e.getMessage()));
         }
+        // If you throw a custom NotFoundException in BooksService:
+        /*
+        catch (NotFoundException e) {
+            logger.error("Error adding book: User not found: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Error adding book: User not found", null, e.getMessage()));
+        }
+        */
     }
 
     @DeleteMapping("/delete")
@@ -76,6 +83,24 @@ public class BooksController {
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error deleting book: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error deleting book", false, e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{bookId}")
+    public ResponseEntity<ApiResponse<Void>> deleteBook(@PathVariable String bookId) {
+        logger.info("Received request to delete book with ID: {}", bookId);
+        try {
+            boolean deleted = booksService.deleteBook(bookId); // Assuming you have this method
+            if (deleted) {
+                logger.debug("Book with ID {} deleted successfully.", bookId);
+                return ResponseEntity.ok(new ApiResponse<>(true, "Book deleted successfully", null, null));
+            } else {
+                logger.warn("Book with ID {} not found or could not be deleted.", bookId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Book not found or could not be deleted", null, null));
+            }
+        } catch (Exception e) {
+            logger.error("Error deleting book with ID {}: {}", bookId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error deleting book", null, e.getMessage()));
         }
     }
 
@@ -130,6 +155,7 @@ public class BooksController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error purchasing book", null, e.getMessage()));
         }
     }
+
     @GetMapping("/owned/email/{email}") // Updated path variable
     public ResponseEntity<ApiResponse<List<RestBooks>>> findBooksOwnedByUser(@PathVariable String email) { // Updated parameter
         logger.info("findBooksOwnedByUser endpoint was hit with email: {}", email); // Updated log message
@@ -148,6 +174,7 @@ public class BooksController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error finding books owned by user", null, e.getMessage()));
         }
     }
+
     @DeleteMapping("/remove/title/{bookTitle}")
     public ResponseEntity<ApiResponse<String>> removeBookByTitle(@PathVariable String bookTitle) {
         try {
@@ -179,4 +206,40 @@ public class BooksController {
         }
     }
 
+    @GetMapping("/{sellerEmail}/listings")
+    public ResponseEntity<ApiResponse<List<RestBooks>>> getSellerListings(@PathVariable String sellerEmail) {
+        logger.info("getSellerListings endpoint was hit for seller: {}", sellerEmail);
+        logger.debug("Fetching listings for seller with email: {}", sellerEmail);
+        try {
+            // Use the method in BooksService designed to fetch seller listings
+            List<RestBooks> sellerBooks = booksService.getSellerListings(sellerEmail);
+            logger.debug("Retrieved listings for seller {}: {}", sellerEmail, sellerBooks);
+            if (!sellerBooks.isEmpty()) {
+                return ResponseEntity.ok(new ApiResponse<>(true, "Seller listings retrieved successfully", sellerBooks, null));
+            } else {
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).body(new ApiResponse<>(true, "No listings found for this seller", null, null));
+            }
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error retrieving listings for seller {}: {}", sellerEmail, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving seller listings", null, e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/listing/bookId/{bookId}/email/{sellerEmail}")
+    public ResponseEntity<Boolean> removeBookFromSellerListingByBookId(
+            @PathVariable String bookId,
+            @PathVariable String sellerEmail) {
+        logger.info("Received request to remove book with ID '{}' from listing of seller with email: {}", bookId, sellerEmail);
+        try {
+            boolean removed = booksService.removeBookFromListingByEmailAndBookId(bookId, sellerEmail);
+            if (removed) {
+                return new ResponseEntity<>(true, HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>(false, HttpStatus.NOT_FOUND);
+            }
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error removing book with ID '{}' for seller '{}': {}", bookId, sellerEmail, e.getMessage(), e);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

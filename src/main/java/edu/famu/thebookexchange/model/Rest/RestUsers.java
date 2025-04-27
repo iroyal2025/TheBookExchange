@@ -11,6 +11,8 @@ public class RestUsers {
     private String userId;
     private boolean isActive;
     private double balance;
+    private Double sellerRating; // Add this field
+    private Long sellerRatingCount; // Add this field
 
     public RestUsers() {
     }
@@ -24,6 +26,20 @@ public class RestUsers {
         this.userId = userId;
         this.isActive = isActive;
         this.balance = balance;
+    }
+
+    // Constructor including seller rating fields
+    public RestUsers(String email, String password, String major, String profilePicture, String role, String userId, boolean isActive, double balance, Double sellerRating, Long sellerRatingCount) {
+        this.email = email;
+        this.password = password;
+        this.major = major;
+        this.profilePicture = profilePicture;
+        this.role = role;
+        this.userId = userId;
+        this.isActive = isActive;
+        this.balance = balance;
+        this.sellerRating = sellerRating;
+        this.sellerRatingCount = sellerRatingCount;
     }
 
     // Getters and setters
@@ -89,5 +105,21 @@ public class RestUsers {
 
     public void setBalance(double balance) {
         this.balance = balance;
+    }
+
+    public Double getSellerRating() {
+        return sellerRating;
+    }
+
+    public void setSellerRating(Double sellerRating) {
+        this.sellerRating = sellerRating;
+    }
+
+    public Long getSellerRatingCount() {
+        return sellerRatingCount;
+    }
+
+    public void setSellerRatingCount(Long sellerRatingCount) {
+        this.sellerRatingCount = sellerRatingCount;
     }
 }

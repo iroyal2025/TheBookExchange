@@ -20,7 +20,7 @@ public abstract class APosts {
         this.createdAt = createdAt;
     }
 
-    // Manual Getters
+    // Getters
     public String getContent() {
         return content;
     }
@@ -29,7 +29,7 @@ public abstract class APosts {
         return createdAt;
     }
 
-    // Manual Setters
+    // Setters
     public void setContent(String content) {
         this.content = content;
     }

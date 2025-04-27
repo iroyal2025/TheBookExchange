@@ -23,32 +23,37 @@ public class ReportsService {
     private static final Logger logger = LoggerFactory.getLogger(ReportsService.class);
     private Firestore firestore;
 
-    private static final String REPORTS_COLLECTION = "Reports"; // Changed collection name
-    private static final long FIRESTORE_TIMEOUT = 5; // Timeout in seconds
+    private static final String REPORTS_COLLECTION = "Reports";
+    private static final long FIRESTORE_TIMEOUT = 5;
 
     public ReportsService() {
         this.firestore = FirestoreClient.getFirestore();
     }
 
-    public List<RestReports> getAllReports() throws InterruptedException, ExecutionException, TimeoutException { // Changed method name
-        CollectionReference reportsCollection = firestore.collection(REPORTS_COLLECTION); // Changed collection reference
+    public List<Map<String, Object>> getAllReportsFormatted() throws InterruptedException, ExecutionException, TimeoutException {
+        CollectionReference reportsCollection = firestore.collection(REPORTS_COLLECTION);
         ApiFuture<QuerySnapshot> querySnapshot = reportsCollection.get();
         List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
 
-        List<RestReports> reports = new ArrayList<>();
+        List<Map<String, Object>> formattedReports = new ArrayList<>();
 
         for (QueryDocumentSnapshot document : documents) {
             if (document.exists()) {
-                RestReports report = new RestReports(
-                        document.getString("content"),
-                        document.getTimestamp("createdAt") != null ? new Timestamp(document.getTimestamp("createdAt").toDate().getTime()) : null,
-                        document.getString("bookTitle"), // Changed to bookTitle
-                        document.getString("userEmail")  // Changed to userEmail
-                );
-                reports.add(report);
+                String reportType = document.getString("reportType");
+                Map<String, Object> reportInfo = new HashMap<>();
+                reportInfo.put("description", document.getString("content"));
+                reportInfo.put("submittedByEmail", document.getString("reportedBy"));
+                reportInfo.put("createdAt", document.getTimestamp("createdAt") != null ? new Timestamp(document.getTimestamp("createdAt").toDate().getTime()) : null);
+
+                if ("book".equals(reportType)) {
+                    reportInfo.put("bookTitle", document.getString("bookTitle"));
+                } else if ("seller".equals(reportType)) {
+                    reportInfo.put("sellerEmail", document.getString("sellerEmail"));
+                }
+                formattedReports.add(reportInfo);
             }
         }
-        return reports;
+        return formattedReports;
     }
 
     public String addReport(RestReports report) throws InterruptedException, ExecutionException {
@@ -56,10 +61,12 @@ public class ReportsService {
 
         Map<String, Object> reportData = new HashMap<>();
         reportData.put("content", report.getContent());
-        // Set createdAt to the current timestamp
-        reportData.put("createdAt", FieldValue.serverTimestamp()); // Use Firestore serverTimestamp()
+        reportData.put("createdAt", FieldValue.serverTimestamp());
         reportData.put("bookTitle", report.getBookTitle());
         reportData.put("userEmail", report.getUserEmail());
+        reportData.put("sellerEmail", report.getSellerEmail());
+        reportData.put("reportedBy", report.getReportedBy());
+        reportData.put("reportType", report.getReportType());
 
         ApiFuture<DocumentReference> writeResult = firestore.collection(REPORTS_COLLECTION).add(reportData);
         DocumentReference rs = writeResult.get();
@@ -67,15 +74,15 @@ public class ReportsService {
         return rs.getId();
     }
 
-    public boolean deleteReportByContent(String content) throws ExecutionException, InterruptedException, TimeoutException { // changed method name and content.
+    public boolean deleteReportByContent(String content) throws ExecutionException, InterruptedException, TimeoutException {
         try {
-            Query query = firestore.collection(REPORTS_COLLECTION).whereEqualTo("content", content); // Changed collection reference
+            Query query = firestore.collection(REPORTS_COLLECTION).whereEqualTo("content", content);
             ApiFuture<QuerySnapshot> querySnapshot = query.get();
             List<QueryDocumentSnapshot> documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
 
             if (!documents.isEmpty()) {
                 for (QueryDocumentSnapshot document : documents) {
-                    firestore.collection(REPORTS_COLLECTION).document(document.getId()).delete().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS); // Changed collection reference
+                    firestore.collection(REPORTS_COLLECTION).document(document.getId()).delete().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
                     logger.info("Report deleted successfully with ID: {} and content: {}", document.getId(), content);
                 }
                 return true;
@@ -89,14 +96,17 @@ public class ReportsService {
         }
     }
 
-    public String updateReport(String reportId, RestReports updatedReport) throws InterruptedException, ExecutionException, TimeoutException { // changed Method name.
-        DocumentReference reportRef = firestore.collection(REPORTS_COLLECTION).document(reportId); // Changed collection reference
+    public String updateReport(String reportId, RestReports updatedReport) throws InterruptedException, ExecutionException, TimeoutException {
+        DocumentReference reportRef = firestore.collection(REPORTS_COLLECTION).document(reportId);
 
         Map<String, Object> updatedReportData = new HashMap<>();
         updatedReportData.put("content", updatedReport.getContent());
         updatedReportData.put("createdAt", updatedReport.getCreatedAt());
-        updatedReportData.put("bookTitle", updatedReport.getBookTitle()); // Changed to bookTitle
-        updatedReportData.put("userEmail", updatedReport.getUserEmail()); // Changed to userEmail
+        updatedReportData.put("bookTitle", updatedReport.getBookTitle());
+        updatedReportData.put("userEmail", updatedReport.getUserEmail());
+        updatedReportData.put("sellerEmail", updatedReport.getSellerEmail());
+        updatedReportData.put("reportedBy", updatedReport.getReportedBy());
+        updatedReportData.put("reportType", updatedReport.getReportType());
 
         ApiFuture<WriteResult> writeResult = reportRef.update(updatedReportData);
         logger.info("Report updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());

@@ -6,6 +6,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { AuthContext } from '../../../context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from 'react-hot-toast';
+import { Slider } from "@/components/ui/slider"; // Import Slider
 
 export default function BrowseTextbooks() {
     const [books, setBooks] = useState([]);
@@ -25,6 +29,16 @@ export default function BrowseTextbooks() {
     const [balanceEditSuccess, setBalanceEditSuccess] = useState(null);
     const [bookFeedback, setBookFeedback] = useState({});
     const [feedbackMessage, setFeedbackMessage] = useState({});
+    const [reportSellerModalOpen, setReportSellerModalOpen] = useState(false);
+    const [reportSellerEmail, setReportSellerEmail] = useState('');
+    const [reportSellerDescription, setReportSellerDescription] = useState('');
+    const [reportSellerError, setReportSellerError] = useState(null);
+    const [reportSellerSuccessMessage, setReportSellerSuccessMessage] = useState(null);
+    const [rateSellerModalOpen, setRateSellerModalOpen] = useState(false);
+    const [ratingSellerEmail, setRatingSellerEmail] = useState('');
+    const [sellerRating, setSellerRating] = useState(5);
+    const [rateSellerSuccessMessage, setRateSellerSuccessMessage] = useState(null);
+    const [rateSellerError, setRateSellerError] = useState(null);
 
     const refetchBooks = async () => {
         setLoading(true);
@@ -156,6 +170,66 @@ export default function BrowseTextbooks() {
         }
     };
 
+    const handleReportSeller = async () => {
+        setReportSellerError(null);
+        if (!reportSellerEmail) {
+            setReportSellerError('Please enter the seller\'s email.');
+            return;
+        }
+        if (!reportSellerDescription) {
+            setReportSellerError('Please describe the issue.');
+            return;
+        }
+        try {
+            const response = await axios.post('http://localhost:8080/Reports/add/seller', {
+                reportedBy: currentUser?.email,
+                sellerEmail: reportSellerEmail,
+                content: reportSellerDescription,
+            });
+            if (response.data.success) {
+                toast.success('Seller report submitted successfully!');
+                setReportSellerSuccessMessage('Report successfully submitted!');
+                setReportSellerModalOpen(false);
+                setReportSellerEmail('');
+                setReportSellerDescription('');
+                setTimeout(() => {
+                    setReportSellerSuccessMessage(null);
+                }, 3000);
+            } else {
+                setReportSellerError(response.data.message || 'Failed to submit seller report.');
+            }
+        } catch (error) {
+            console.error('Error submitting seller report:', error);
+            setReportSellerError('An error occurred while submitting the seller report.');
+        }
+    };
+
+    const handleRateSellerSubmit = async () => {
+        setRateSellerError(null);
+        try {
+            const response = await axios.post('http://localhost:8080/Users/rate/seller', {
+                sellerEmail: ratingSellerEmail,
+                raterEmail: currentUser.email,
+                rating: sellerRating,
+            });
+            if (response.data.success) {
+                toast.success('Seller rated successfully!');
+                setRateSellerSuccessMessage('Seller rated successfully!');
+                setRateSellerModalOpen(false);
+                setSellerRating(5);
+                // Instead of a generic refetchBooks, consider a more targeted update
+                if (onRatingSubmitted) {
+                    onRatingSubmitted(); // This prop likely refreshes the owned books data
+                }
+            } else {
+                setRateSellerError(response.data.message || 'Failed to rate seller.');
+            }
+        } catch (error) {
+            console.error('Error rating seller:', error);
+            setRateSellerError('An error occurred while rating the seller.');
+        }
+    };
+
     if (loading) return <div className="p-4 flex justify-center items-center"><Spinner /></div>;
     if (error) return <div className="p-4 text-red-600">Error loading textbooks: {error}</div>;
     return (
@@ -203,8 +277,9 @@ export default function BrowseTextbooks() {
                             <th className="p-2 text-left">Title</th>
                             <th className="p-2 text-left">Author</th>
                             <th className="p-2 text-left">Price</th>
-                            <th className="p-2 text-left">Rating</th>
-                            <th className="p-2 text-left">Action</th>
+                            <th className="p-2 text-left">Book Rating</th>
+                            <th className="p-2 text-left">Seller</th>
+                            <th className="p-2 text-left">Actions</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -217,6 +292,23 @@ export default function BrowseTextbooks() {
                                     {book.ratingCount > 0 ? `${(book.rating).toFixed(2)} (${book.ratingCount} ratings)` : 'No ratings'}
                                 </td>
                                 <td className="p-2">
+                                    {book.sellerId}
+                                    {book.sellerEmail && (
+                                        <Button
+                                            onClick={() => {
+                                                setRatingSellerEmail(book.sellerEmail);
+                                                setRateSellerModalOpen(true);
+                                            }}
+                                            variant="outline"
+                                            className="ml-2"
+                                            size="sm"
+                                        >
+                                            Rate Seller
+                                        </Button>
+                                    )}
+                                    {book.sellerRatingCount > 0 ? `(Rating: ${(book.sellerRating ? book.sellerRating.toFixed(2) : 'N/A')} - ${book.sellerRatingCount} ratings)` : '(No seller ratings)'}
+                                </td>
+                                <td className="p-2">
                                     <Button
                                         onClick={(event) => handleBuy(book.bookId, book.price, event)}
                                         disabled={purchaseLoading || !currentUser?.email}
@@ -226,20 +318,6 @@ export default function BrowseTextbooks() {
                                     <Button onClick={() => fetchFeedback(book.bookId)} variant="outline" className="mt-2 ml-2">
                                         View Feedback
                                     </Button>
-                                    {bookFeedback[book.bookId] && (
-                                        <div className="mt-2">
-                                            <p><strong>Feedback:</strong></p>
-                                            {feedbackMessage[book.bookId] && <p className="text-gray-500">{feedbackMessage[book.bookId]}</p>}
-                                            <ul>
-                                                {bookFeedback[book.bookId].map(fb => (
-                                                    <li key={fb.feedbackId}>
-                                                        {fb.feedback}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                    {purchaseError && <p className="text-red-500 mt-1">{purchaseError}</p>}
                                 </td>
                             </tr>
                         ))}
@@ -247,13 +325,92 @@ export default function BrowseTextbooks() {
                     </table>
                 </div>
 
-                <div className="mt-8">
+                <div className="mt-8 flex justify-between">
                     <Button onClick={handleBackToDashboard} variant="outline">
                         Back to Dashboard
                     </Button>
+                    <Button onClick={() => setReportSellerModalOpen(true)} variant="outline">
+                        Report Seller
+                    </Button>
+                    <Dialog open={reportSellerModalOpen} onOpenChange={setReportSellerModalOpen}>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Report Issue with a Seller</DialogTitle>
+                                <DialogDescription>
+                                    Please enter the seller's email and describe the issue you are experiencing. This report will be sent to the administrator.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <label htmlFor="sellerEmail" className="text-right">
+                                        Seller Email
+                                    </label>
+                                    <Input
+                                        type="email"
+                                        id="sellerEmail"
+                                        placeholder="seller@example.com"
+                                        value={reportSellerEmail}
+                                        onChange={(e) => setReportSellerEmail(e.target.value)}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <label htmlFor="issueDescription">Issue Description</label>
+                                    <Textarea
+                                        id="issueDescription"
+                                        placeholder="Describe the issue you are having with the seller."
+                                        value={reportSellerDescription}
+                                        onChange={(e) => setReportSellerDescription(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            {reportSellerError && <p className="text-red-500 mt-2">{reportSellerError}</p>}
+                            <div className="flex justify-end">
+                                <Button type="button" onClick={handleReportSeller}>Submit Report</Button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
                 </div>
 
+                {rateSellerSuccessMessage && (
+                    <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mt-4" role="alert">
+                        <span className="block sm:inline">{rateSellerSuccessMessage}</span>
+                    </div>
+                )}
+
+                {reportSellerSuccessMessage && (
+                    <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mt-4" role="alert">
+                        <span className="block sm:inline">{reportSellerSuccessMessage}</span>
+                    </div>
+                )}
+
             </div>
+
+            {/* Rate Seller Modal */}
+            <Dialog open={rateSellerModalOpen} onOpenChange={setRateSellerModalOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Rate Seller</DialogTitle>
+                        <DialogDescription>
+                            Please rate the seller: {ratingSellerEmail}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Slider
+                                value={[sellerRating]}
+                                max={5}
+                                step={1}
+                                onValueChange={(value) => setSellerRating(value[0])}
+                            />
+                            <p>Rating: {sellerRating} / 5</p>
+                        </div>
+                    </div>
+                    {rateSellerError && <p className="text-red-500 mt-2">{rateSellerError}</p>}
+                    <div className="flex justify-end">
+                        <Button type="button" onClick={handleRateSellerSubmit}>Submit Rating</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
