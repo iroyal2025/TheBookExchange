@@ -24,6 +24,10 @@ export default function StudentDashboard() {
         handleTabClick('profile'); // Use the existing tab navigation logic
     };
 
+    const handleNotificationsClick = () => {
+        router.push('/student-dashboard/notifications');
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-r from-orange-500 to-green-500 flex flex-col items-center justify-center">
             <div className="bg-white p-10 rounded-2xl shadow-2xl text-center w-full max-w-4xl">
@@ -47,10 +51,16 @@ export default function StudentDashboard() {
                     </Button>
                     <Button
                         variant={activeTab === 'profile' ? 'default' : 'outline'}
-                        className={`${activeTab === 'profile' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-blue-600'}`}
+                        className={`mr-4 ${activeTab === 'profile' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-blue-600'}`}
                         onClick={handleProfileClick}
                     >
                         Profile
+                    </Button>
+                    <Button
+                        onClick={handleNotificationsClick}
+                        className="bg-blue-500 text-white hover:bg-blue-600"
+                    >
+                        Notifications
                     </Button>
                 </div>
                 <Button onClick={handleLogout} className="mt-6 bg-red-500 text-white hover:bg-red-600">

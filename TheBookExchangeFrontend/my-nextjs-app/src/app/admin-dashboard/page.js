@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,6 +19,10 @@ export default function AdminDashboard() {
 
     const handleProfileClick = () => {
         handleTabClick('profile'); // Use the existing tab navigation logic
+    };
+
+    const handleNotificationsClick = () => {
+        router.push('/admin-dashboard/notifications'); // Navigate to the notifications page
     };
 
     return (
@@ -49,6 +52,13 @@ export default function AdminDashboard() {
                         onClick={handleProfileClick}
                     >
                         Profile
+                    </Button>
+                    <Button
+                        variant={activeTab === 'notifications' ? 'default' : 'outline'}
+                        className={`${activeTab === 'notifications' ? 'bg-green-600 hover:bg-green-700 text-white' : 'text-purple-600'}`}
+                        onClick={handleNotificationsClick}
+                    >
+                        Notifications
                     </Button>
                 </div>
 

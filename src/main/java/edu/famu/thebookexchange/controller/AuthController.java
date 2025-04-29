@@ -62,6 +62,7 @@ public class AuthController {
                         Map<String, String> response = new HashMap<>();
                         response.put("email", email);
                         response.put("role", role);
+                        response.put("userId", document.getId()); // Add the userId here
                         return ResponseEntity.ok(response);
                     } else {
                         logger.warn("Role not found for Email: {}", email);

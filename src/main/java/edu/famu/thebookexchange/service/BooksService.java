@@ -6,6 +6,7 @@ import com.google.firebase.cloud.FirestoreClient;
 import edu.famu.thebookexchange.model.Rest.RestBooks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -26,6 +27,9 @@ public class BooksService {
     private static final String USERS_COLLECTION = "Users";
     private static final String COURSES_COLLECTION = "Courses";
     private static final long FIRESTORE_TIMEOUT = 5;
+
+    @Autowired
+    private NotificationService notificationService; // Inject NotificationService
 
     public BooksService() {
         this.firestore = FirestoreClient.getFirestore();
@@ -130,6 +134,19 @@ public class BooksService {
                     updateFuture.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
                     logger.debug("Book ID {} added to listings for seller ID: {}", bookId, sellerId);
 
+                    // --- Generate notification for ALL students ---
+                    List<String> allStudentIds = getAllStudentIds();
+                    logger.info("Found {} student users to notify for book ID: {}", allStudentIds.size(), bookId);
+
+                    if (sellerEmail != null) {
+                        try {
+                            notificationService.notifyStudentNewBookAdded(allStudentIds, book.getTitle(), bookId, sellerEmail);
+                            logger.info("'new_book_added' notification generated for {} students for book ID: {}", allStudentIds.size(), bookId);
+                        } catch (InterruptedException | ExecutionException e) {
+                            logger.error("Error sending 'new_book_added' notifications for book ID {}: {}", bookId, e.getMessage(), e);
+                        }
+                    }
+
                 } else {
                     logger.warn("User document not found for email: {}, cannot update listings or set seller ID in Book.", sellerEmail);
                 }
@@ -147,13 +164,32 @@ public class BooksService {
         }
     }
 
+    private List<String> getAllStudentIds() throws InterruptedException, ExecutionException, TimeoutException {
+        List<String> studentIds = new ArrayList<>();
+        logger.debug("Fetching all student user IDs...");
+        QuerySnapshot userQuerySnapshot = firestore.collection(USERS_COLLECTION)
+                .whereEqualTo("role", "student")
+                .get()
+                .get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+        for (QueryDocumentSnapshot doc : userQuerySnapshot.getDocuments()) {
+            studentIds.add(doc.getId());
+            logger.debug("Found student user ID: {}", doc.getId());
+        }
+        logger.info("Retrieved {} student user IDs.", studentIds.size());
+        return studentIds;
+    }
+
     public boolean deleteBook(String bookId) throws ExecutionException, InterruptedException, TimeoutException {
         logger.info("Deleting book with bookId: {}", bookId);
+        String bookTitle = null; // To store the title for the notification
         try {
-            // Get the book to find the seller
+            // Get the book to find the seller and the title for the notification
             DocumentSnapshot bookSnapshot = firestore.collection(BOOKS_COLLECTION).document(bookId).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
             if (bookSnapshot.exists()) {
                 String sellerEmail = bookSnapshot.getString("userId");
+                bookTitle = bookSnapshot.getString("title");
+
                 // Remove the bookId from the seller's listings
                 if (sellerEmail != null) {
                     DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(sellerEmail);
@@ -176,6 +212,18 @@ public class BooksService {
             ApiFuture<WriteResult> writeResult = firestore.collection(BOOKS_COLLECTION).document(bookId).delete();
             writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
             logger.info("Book deleted successfully with ID: {}", bookId);
+
+            // --- Generate notification for ALL students about the deletion ---
+            if (bookTitle != null) {
+                List<String> allStudentIds = getAllStudentIds();
+                logger.info("Notifying {} students about the deletion of book: {}", allStudentIds.size(), bookTitle);
+                try {
+                    notificationService.notifyStudentBookDeleted(allStudentIds, bookTitle, bookId);
+                } catch (InterruptedException | ExecutionException e) {
+                    logger.error("Error sending 'book_deleted' notifications for book ID {}: {}", bookId, e.getMessage(), e);
+                }
+            }
+
             return true;
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error deleting book with bookId: {}", bookId, e);
@@ -185,8 +233,15 @@ public class BooksService {
 
     public String updateBook(String bookId, RestBooks updatedBook) throws InterruptedException, ExecutionException, TimeoutException {
         logger.info("Updating book with bookId: {}", bookId);
+        String originalBookTitle = null;
         try {
             DocumentReference bookRef = firestore.collection(BOOKS_COLLECTION).document(bookId);
+
+            // Get the original book title for the notification
+            DocumentSnapshot originalBookSnapshot = bookRef.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+            if (originalBookSnapshot.exists()) {
+                originalBookTitle = originalBookSnapshot.getString("title");
+            }
 
             Map<String, Object> updatedBookData = new HashMap<>();
             updatedBookData.put("title", updatedBook.getTitle());
@@ -205,12 +260,32 @@ public class BooksService {
             ApiFuture<WriteResult> writeResult = bookRef.update(updatedBookData);
             logger.info("Book updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
 
+            // --- Generate notification for ALL students about the update ---
+            if (originalBookTitle != null && !originalBookTitle.equals(updatedBook.getTitle())) {
+                List<String> allStudentIds = getAllStudentIds();
+                logger.info("Notifying {} students about the update of book: {} to {}", allStudentIds.size(), originalBookTitle, updatedBook.getTitle());
+                try {
+                    notificationService.notifyStudentBookUpdated(allStudentIds, originalBookTitle, updatedBook.getTitle(), bookId);
+                } catch (InterruptedException | ExecutionException e) {
+                    logger.error("Error sending 'book_updated' notifications for book ID {}: {}", bookId, e.getMessage(), e);
+                }
+            } else if (originalBookTitle != null) {
+                List<String> allStudentIds = getAllStudentIds();
+                logger.info("Notifying {} students about the update of book: {}", allStudentIds.size(), originalBookTitle);
+                try {
+                    notificationService.notifyStudentBookUpdated(allStudentIds, originalBookTitle, updatedBook.getTitle(), bookId);
+                } catch (InterruptedException | ExecutionException e) {
+                    logger.error("Error sending 'book_updated' notifications for book ID {}: {}", bookId, e.getMessage(), e);
+                }
+            }
+
             return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
         } catch (Exception e) {
             logger.error("Error updating book: {}", e.getMessage(), e);
             throw e;
         }
     }
+
 
     public DocumentSnapshot getBookDocumentSnapshot(String bookId) throws ExecutionException, InterruptedException, TimeoutException {
         DocumentReference bookRef = firestore.collection(BOOKS_COLLECTION).document(bookId);
@@ -222,18 +297,31 @@ public class BooksService {
 
         try {
             return firestore.runTransaction(transaction -> {
-                DocumentSnapshot bookDoc = transaction.get(firestore.collection(BOOKS_COLLECTION).document(bookId)).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                DocumentSnapshot bookDoc;
+                try {
+                    bookDoc = transaction.get(firestore.collection(BOOKS_COLLECTION).document(bookId)).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                } catch (TimeoutException e) {
+                    logger.warn("Timeout occurred while getting book {} for purchase: {}", bookId, e.getMessage());
+                    throw e;
+                }
                 if (!bookDoc.exists()) {
                     logger.warn("Book not found with ID: {}", bookId);
                     return -1.0;
                 }
 
-                QuerySnapshot userQuery = firestore.collection("Users").whereEqualTo("email", buyerEmail).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                QuerySnapshot userQuery;
+                try {
+                    userQuery = firestore.collection("Users").whereEqualTo("email", buyerEmail).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                } catch (TimeoutException e) {
+                    logger.warn("Timeout occurred while getting user {} for purchase: {}", buyerEmail, e.getMessage());
+                    throw e;
+                }
                 if (userQuery.isEmpty()) {
                     logger.warn("Buyer not found with email: {}", buyerEmail);
                     return -1.0;
                 }
                 DocumentSnapshot buyerDoc = userQuery.getDocuments().get(0);
+                String buyerId = buyerDoc.getId();
 
                 double bookPrice = bookDoc.getDouble("price");
                 double userBalance = buyerDoc.getDouble("balance");
@@ -244,7 +332,7 @@ public class BooksService {
                 }
 
                 double newBalance = userBalance - bookPrice;
-                transaction.update(firestore.collection("Users").document(buyerDoc.getId()), "balance", newBalance);
+                transaction.update(firestore.collection("Users").document(buyerId), "balance", newBalance);
                 logger.info("Buyer balance updated for buyer: {}", buyerEmail);
 
                 List<String> ownedBy = (List<String>) bookDoc.get("ownedBy");
@@ -264,9 +352,38 @@ public class BooksService {
 
                 return newBalance;
             }).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            logger.error("Timeout occurred during purchase: {}", e.getMessage());
+            throw e;
         } catch (Exception e) {
             logger.error("Error purchasing book: {}", e.getMessage(), e);
             throw e;
+        } finally {
+            // --- Generate notification for the student after successful purchase ---
+            // The buyerEmail is the student's email. We need their ID.
+            QuerySnapshot userQuery;
+            try {
+                userQuery = firestore.collection("Users").whereEqualTo("email", buyerEmail).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                if (!userQuery.isEmpty()) {
+                    String studentId = userQuery.getDocuments().get(0).getId();
+                    DocumentSnapshot bookSnapshot;
+                    try {
+                        bookSnapshot = getBookDocumentSnapshot(bookId); // Corrected call
+                        if (bookSnapshot.exists()) {
+                            String bookTitle = bookSnapshot.getString("title");
+                            try {
+                                notificationService.notifyStudentBookPurchased(studentId, bookTitle, bookId);
+                            } catch (InterruptedException | ExecutionException e) {
+                                logger.error("Error sending purchase notification to student {}: {}", studentId, e.getMessage(), e);
+                            }
+                        }
+                    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                        logger.error("Error retrieving book details for purchase notification: {}", e.getMessage(), e);
+                    }
+                }
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                logger.error("Error retrieving user details for purchase notification: {}", e.getMessage(), e);
+            }
         }
     }
 
@@ -308,7 +425,8 @@ public class BooksService {
 
             if (!documents.isEmpty()) {
                 WriteBatch batch = firestore.batch();
-                for (QueryDocumentSnapshot document : documents) {
+                for (QueryDocumentSnapshot document : documents
+                ) {
                     String bookId = document.getId();
                     String sellerEmail = document.getString("userId");
                     if (sellerEmail != null) {

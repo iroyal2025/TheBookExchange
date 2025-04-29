@@ -1,4 +1,3 @@
-// UsersService.java
 package edu.famu.thebookexchange.service;
 
 import com.google.api.core.ApiFuture;
@@ -7,6 +6,7 @@ import com.google.firebase.cloud.FirestoreClient;
 import edu.famu.thebookexchange.model.Rest.RestUsers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +27,9 @@ public class UsersService {
 
     private static final String USERS_COLLECTION = "Users";
     private static final long FIRESTORE_TIMEOUT = 5;
+
+    @Autowired
+    private NotificationService notificationService;
 
     public UsersService() {
         this.firestore = FirestoreClient.getFirestore();
@@ -84,27 +87,34 @@ public class UsersService {
         return null;
     }
 
-    public String addUser(RestUsers user) throws InterruptedException, ExecutionException {
+    public String addUser(RestUsers user, String adminId) throws InterruptedException, ExecutionException {
         logger.info("Adding user with details: {}", user);
 
         Map<String, Object> userData = new HashMap<>();
         userData.put("email", user.getEmail());
-        userData.put("password", user.getPassword()); // Store password in plain text
+        userData.put("password", user.getPassword()); // Store password (consider hashing)
         userData.put("major", user.getMajor());
         userData.put("profilePicture", user.getProfilePicture());
         userData.put("role", user.getRole());
         userData.put("isActive", true);
-        userData.put("balance", 0.0); // Initialize balance to 0
-        userData.put("sellerRating", 0.0); // Initialize sellerRating
-        userData.put("sellerRatingCount", 0L); // Initialize sellerRatingCount
+        userData.put("balance", 0.0);
+        userData.put("sellerRating", 0.0);
+        userData.put("sellerRatingCount", 0L);
 
         ApiFuture<DocumentReference> writeResult = firestore.collection(USERS_COLLECTION).add(userData);
-        DocumentReference rs = writeResult.get();
-        logger.info("User added with ID: {}", rs.getId());
-        return rs.getId();
-    }
+        DocumentReference newUserRef = writeResult.get();
+        String newUserId = newUserRef.getId();
+        logger.info("User added with ID: {}", newUserId);
 
-    public boolean deleteUserByEmail(String email) throws ExecutionException, InterruptedException, TimeoutException {
+        if (adminId != null) {
+            notificationService.notifyAdminUserAdded(adminId, newUserId, user.getEmail());
+        } else {
+            logger.warn("Admin ID not provided for 'user_added' notification.");
+        }
+
+        return newUserId;
+    }
+    public boolean deleteUserByEmail(String email, String adminId) throws ExecutionException, InterruptedException, TimeoutException {
         logger.info("Deleting user with email: {}", email);
         try {
             Query query = firestore.collection(USERS_COLLECTION).whereEqualTo("email", email);
@@ -113,8 +123,14 @@ public class UsersService {
 
             if (!documents.isEmpty()) {
                 for (QueryDocumentSnapshot document : documents) {
-                    firestore.collection(USERS_COLLECTION).document(document.getId()).delete().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
-                    logger.info("User deleted successfully with ID: {} and email: {}", document.getId(), email);
+                    String userIdToDelete = document.getId();
+                    firestore.collection(USERS_COLLECTION).document(userIdToDelete).delete().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                    logger.info("User deleted successfully with ID: {} and email: {}", userIdToDelete, email);
+                    if (adminId != null) {
+                        notificationService.notifyAdminUserDeleted(adminId, userIdToDelete, email);
+                    } else {
+                        logger.warn("Admin ID not provided for 'user_deleted' notification.");
+                    }
                 }
                 return true;
             } else {
@@ -127,12 +143,19 @@ public class UsersService {
         }
     }
 
-    public boolean deleteUser(String userId) throws ExecutionException, InterruptedException, TimeoutException {
+    public boolean deleteUser(String userId, String adminId) throws ExecutionException, InterruptedException, TimeoutException {
         logger.info("Deleting user with userID: {}", userId);
         try {
             ApiFuture<WriteResult> writeResult = firestore.collection(USERS_COLLECTION).document(userId).delete();
             writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
             logger.info("User deleted successfully with ID: {}", userId);
+            DocumentSnapshot deletedUserSnapshot = firestore.collection(USERS_COLLECTION).document(userId).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+            String deletedUserEmail = deletedUserSnapshot.getString("email");
+            if (adminId != null && deletedUserEmail != null) {
+                notificationService.notifyAdminUserDeleted(adminId, userId, deletedUserEmail);
+            } else {
+                logger.warn("Admin ID not provided for 'user_deleted' notification.");
+            }
             return true;
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error deleting user with userID: {}", userId, e);
@@ -140,10 +163,12 @@ public class UsersService {
         }
     }
 
-    public String updateUser(String userId, RestUsers updatedUser) throws InterruptedException, ExecutionException, TimeoutException {
+    public String updateUser(String userId, RestUsers updatedUser, String adminId) throws InterruptedException, ExecutionException, TimeoutException {
         logger.info("Updating user with userId: {}", userId);
         try {
             DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
+            DocumentSnapshot originalUserSnapshot = userRef.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+            RestUsers originalUser = originalUserSnapshot.toObject(RestUsers.class);
 
             Map<String, Object> updatedUserData = new HashMap<>();
             updatedUserData.put("email", updatedUser.getEmail());
@@ -162,6 +187,21 @@ public class UsersService {
             ApiFuture<WriteResult> writeResult = userRef.update(updatedUserData);
             logger.info("User updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
 
+            if (adminId != null && originalUser != null) {
+                StringBuilder changes = new StringBuilder();
+                if (!originalUser.getEmail().equals(updatedUser.getEmail())) changes.append("Email changed to ").append(updatedUser.getEmail()).append(", ");
+                if (!originalUser.getMajor().equals(updatedUser.getMajor())) changes.append("Major changed to ").append(updatedUser.getMajor()).append(", ");
+                if (!originalUser.getRole().equals(updatedUser.getRole())) changes.append("Role changed to ").append(updatedUser.getRole()).append(", ");
+                if (originalUser.isActive() != updatedUser.isActive()) changes.append("Active status changed to ").append(updatedUser.isActive()).append(", ");
+
+                if (changes.length() > 0) {
+                    changes.delete(changes.length() - 2, changes.length()); // Remove the last ", "
+                    notificationService.notifyAdminUserEdited(adminId, userId, updatedUser.getEmail(), changes.toString());
+                }
+            } else {
+                logger.warn("Admin ID not provided for 'user_edited' notification.");
+            }
+
             return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
         } catch (Exception e) {
             logger.error("Error updating user: {}", e.getMessage(), e);
@@ -169,7 +209,7 @@ public class UsersService {
         }
     }
 
-    public boolean toggleUserActivation(String userId) throws ExecutionException, InterruptedException, TimeoutException {
+    public boolean toggleUserActivation(String userId, String adminId) throws ExecutionException, InterruptedException, TimeoutException {
         logger.info("Toggling activation for user with userId: {}", userId);
         try {
             DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
@@ -177,9 +217,20 @@ public class UsersService {
 
             if (document.exists()) {
                 boolean currentActiveStatus = document.getBoolean("isActive") != null ? document.getBoolean("isActive") : true;
-                userRef.update("isActive", !currentActiveStatus).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                boolean newActiveStatus = !currentActiveStatus;
+                userRef.update("isActive", newActiveStatus).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
                 logger.info("User activation toggled successfully for ID: {}", userId);
-                return !currentActiveStatus;
+                String userEmail = document.getString("email");
+                if (adminId != null && userEmail != null) {
+                    if (newActiveStatus) {
+                        notificationService.notifyAdminUserActivated(adminId, userId, userEmail);
+                    } else {
+                        notificationService.notifyAdminUserDeactivated(adminId, userId, userEmail);
+                    }
+                } else {
+                    logger.warn("Admin ID not provided for 'user_activation_toggled' notification.");
+                }
+                return newActiveStatus;
             } else {
                 logger.warn("User not found for activation toggle with ID: {}", userId);
                 return false;
@@ -190,12 +241,7 @@ public class UsersService {
         }
     }
 
-    public DocumentSnapshot getUserDocumentSnapshot(String userID) throws ExecutionException, InterruptedException, TimeoutException {
-        DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userID);
-        return userRef.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
-    }
-
-    public boolean setUserActivation(String userId, boolean active) throws InterruptedException, ExecutionException, TimeoutException {
+    public boolean setUserActivation(String userId, boolean active, String adminId) throws InterruptedException, ExecutionException, TimeoutException {
         logger.info("Setting activation for user with userId: {} to: {}", userId, active);
         try {
             DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
@@ -204,6 +250,16 @@ public class UsersService {
             if (document.exists()) {
                 userRef.update("isActive", active).get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
                 logger.info("User activation set to {} for ID: {}", active, userId);
+                String userEmail = document.getString("email");
+                if (adminId != null && userEmail != null) {
+                    if (active) {
+                        notificationService.notifyAdminUserActivated(adminId, userId, userEmail);
+                    } else {
+                        notificationService.notifyAdminUserDeactivated(adminId, userId, userEmail);
+                    }
+                } else {
+                    logger.warn("Admin ID not provided for 'user_activation_set' notification.");
+                }
                 return active;
             } else {
                 logger.warn("User not found for activation change with ID: {}", userId);
@@ -213,6 +269,11 @@ public class UsersService {
             logger.error("Error setting user activation: {}", userId, e);
             throw e;
         }
+    }
+
+    public DocumentSnapshot getUserDocumentSnapshot(String userID) throws ExecutionException, InterruptedException, TimeoutException {
+        DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userID);
+        return userRef.get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
     }
 
     public double getUserBalance(String userId) throws InterruptedException, ExecutionException, TimeoutException {
@@ -263,7 +324,7 @@ public class UsersService {
         }
     }
 
-    public void removeStudentFromParent(String parentEmail, String studentEmail) throws InterruptedException, ExecutionException, TimeoutException {
+    public void removeStudentFromParent(String parentEmail, String studentEmail, String adminId) throws InterruptedException, ExecutionException, TimeoutException {
         logger.info("Removing student {} from parent {}", studentEmail, parentEmail);
         try {
             // Find the parent document using parentEmail
@@ -294,7 +355,7 @@ public class UsersService {
         }
     }
 
-    public void addStudentToParent(String parentEmail, String studentEmail) throws InterruptedException, ExecutionException, TimeoutException {
+    public void addStudentToParent(String parentEmail, String studentEmail, String adminId) throws InterruptedException, ExecutionException, TimeoutException {
         logger.info("Adding student {} to parent {}", studentEmail, parentEmail);
 
         try {
@@ -403,12 +464,17 @@ public class UsersService {
             return null;
         }
     }
-    public String updateUserEmail(String userId, String newEmail) throws InterruptedException, ExecutionException, TimeoutException {
+    public String updateUserEmail(String userId, String newEmail, String adminId) throws InterruptedException, ExecutionException, TimeoutException {
         logger.info("Updating email for user with userId: {} to: {}", userId, newEmail);
         try {
             DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
             ApiFuture<WriteResult> writeResult = userRef.update("email", newEmail);
             logger.info("User email updated at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
+            if (adminId != null) {
+                notificationService.notifyAdminUserEdited(adminId, userId, newEmail, "Email updated to " + newEmail);
+            } else {
+                logger.warn("Admin ID not provided for 'update_user_email' notification.");
+            }
             return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
         } catch (Exception e) {
             logger.error("Error updating user email: {}", e.getMessage(), e);
@@ -416,12 +482,19 @@ public class UsersService {
         }
     }
 
-    public String updateUserPassword(String userId, String newPassword) throws InterruptedException, ExecutionException, TimeoutException {
+    public String updateUserPassword(String userId, String newPassword, String adminId) throws InterruptedException, ExecutionException, TimeoutException {
         logger.warn("Updating password in Firestore to the raw");
         try {
             DocumentReference userRef = firestore.collection(USERS_COLLECTION).document(userId);
             ApiFuture<WriteResult> writeResult = userRef.update("password", newPassword); // Directly set the raw password
             logger.info("User password updated in Firestore at: {}", writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString());
+            if (adminId != null) {
+                // You might not want to create a notification for password updates for security reasons.
+                // If you do, be very careful about the message content.
+                logger.info("Admin ID provided, but skipping notification for password update.");
+            } else {
+                logger.warn("Admin ID not provided, skipping notification for password update.");
+            }
             return writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getUpdateTime().toString();
         } catch (Exception e) {
             logger.error("Error updating user password in Firestore: {}", e.getMessage(), e);
@@ -456,6 +529,33 @@ public class UsersService {
         } catch (Exception e) {
             logger.error("Error rating seller: {}", e.getMessage(), e);
             throw e;
+        }
+    }
+
+    public RestUsers getUserById(String userId) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Retrieving user by ID: {}", userId);
+        DocumentReference docRef = firestore.collection(USERS_COLLECTION).document(userId);
+        ApiFuture<DocumentSnapshot> future = docRef.get();
+        DocumentSnapshot document = future.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+
+        if (document.exists()) {
+            RestUsers user = new RestUsers(
+                    document.getString("email"),
+                    document.getString("password"),
+                    document.getString("major"),
+                    document.getString("profilePicture"),
+                    document.getString("role"),
+                    document.getId(),
+                    document.getBoolean("isActive") != null ? document.getBoolean("isActive") : true,
+                    document.getDouble("balance") != null ? document.getDouble("balance") : 0.0,
+                    document.getDouble("sellerRating"),
+                    document.getLong("sellerRatingCount")
+            );
+            logger.info("User found with ID: {}", userId);
+            return user;
+        } else {
+            logger.warn("User not found with ID: {}", userId);
+            return null;
         }
     }
 }
