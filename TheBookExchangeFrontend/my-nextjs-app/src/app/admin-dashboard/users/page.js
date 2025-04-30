@@ -3,6 +3,10 @@ import React, { useState, useEffect } from 'react';
 import axios from '@/lib/axiosConfig';
 import { useRouter } from 'next/navigation';
 
+const getLoggedInAdminId = () => {
+    return localStorage.getItem('userId'); // Use 'userId' to match AuthContext
+};
+
 export default function ManageUsers() {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -47,8 +51,16 @@ export default function ManageUsers() {
     };
 
     const handleDelete = async (user) => {
+        const adminId = getLoggedInAdminId();
+        console.log("Admin ID in handleDelete:", adminId);
+        if (!adminId) {
+            console.error('Admin User ID not found.');
+            return;
+        }
         try {
-            const response = await axios.delete(`http://localhost:8080/Users/${user.userId}`);
+            console.log("Attempting to delete user with ID:", user.userId, "by admin:", adminId);
+            const response = await axios.delete(`http://localhost:8080/Users/${user.userId}?adminIdFromFrontend=${adminId}`);
+            console.log("Delete user response:", response);
             if (response.data.success) {
                 fetchUsers();
                 setMessage("User deleted successfully.");
@@ -56,13 +68,22 @@ export default function ManageUsers() {
                 setError(response.data.message);
             }
         } catch (err) {
+            console.error("Error deleting user:", err);
             setError(err.message);
         }
     };
 
     const handleAddUser = async () => {
+        const adminId = getLoggedInAdminId();
+        console.log("Admin ID in handleAddUser:", adminId);
+        if (!adminId) {
+            console.error('Admin User ID not found.');
+            return;
+        }
         try {
-            const response = await axios.post('http://localhost:8080/Users/add', newUser);
+            console.log("Attempting to add user:", newUser, "by admin:", adminId);
+            const response = await axios.post(`http://localhost:8080/Users/add?adminIdFromFrontend=${adminId}`, newUser);
+            console.log("Add user response:", response);
             if (response.data.success) {
                 fetchUsers();
                 setIsAdding(false);
@@ -72,6 +93,7 @@ export default function ManageUsers() {
                 setError(response.data.message);
             }
         } catch (err) {
+            console.error("Error adding user:", err);
             setError(err.message);
         }
     };
@@ -89,9 +111,17 @@ export default function ManageUsers() {
     };
 
     const handleUpdateUser = async () => {
+        const adminId = getLoggedInAdminId();
+        console.log("Admin ID in handleUpdateUser:", adminId);
+        if (!adminId) {
+            console.error('Admin User ID not found.');
+            return;
+        }
         try {
+            console.log("Attempting to update user with ID:", editingUser?.userId, "data:", editingUser, "by admin:", adminId);
             if (editingUser && editingUser.userId) {
-                const response = await axios.put(`http://localhost:8080/Users/${editingUser.userId}`, editingUser);
+                const response = await axios.put(`http://localhost:8080/Users/${editingUser.userId}?adminIdFromFrontend=${adminId}`, editingUser);
+                console.log("Update user response:", response);
                 if (response.data.success) {
                     fetchUsers();
                     setIsEditing(false);
@@ -104,13 +134,22 @@ export default function ManageUsers() {
                 setError("Editing user userId is missing.");
             }
         } catch (err) {
+            console.error("Error updating user:", err);
             setError(err.message);
         }
     };
 
     const handleActivate = async (user) => {
+        const adminId = getLoggedInAdminId();
+        console.log("Admin ID in handleActivate:", adminId);
+        if (!adminId) {
+            console.error('Admin User ID not found.');
+            return;
+        }
         try {
-            const response = await axios.put(`http://localhost:8080/Users/${user.userId}/activate`);
+            console.log("Attempting to activate user with ID:", user.userId, "by admin:", adminId);
+            const response = await axios.put(`http://localhost:8080/Users/${user.userId}/activate?adminIdFromFrontend=${adminId}`);
+            console.log("Activate user response:", response);
             if (response.data.success) {
                 fetchUsers();
                 setMessage("User activation successful.");
@@ -118,13 +157,22 @@ export default function ManageUsers() {
                 setError(response.data.message);
             }
         } catch (err) {
+            console.error("Error activating user:", err);
             setError(err.message);
         }
     };
 
     const handleDeactivate = async (user) => {
+        const adminId = getLoggedInAdminId();
+        console.log("Admin ID in handleDeactivate:", adminId);
+        if (!adminId) {
+            console.error('Admin User ID not found.');
+            return;
+        }
         try {
-            const response = await axios.put(`http://localhost:8080/Users/${user.userId}/deactivate`);
+            console.log("Attempting to deactivate user with ID:", user.userId, "by admin:", adminId);
+            const response = await axios.put(`http://localhost:8080/Users/${user.userId}/deactivate?adminIdFromFrontend=${adminId}`);
+            console.log("Deactivate user response:", response);
             if (response.data.success) {
                 fetchUsers();
                 setMessage("User deactivation successful.");
@@ -132,6 +180,7 @@ export default function ManageUsers() {
                 setError(response.data.message);
             }
         } catch (err) {
+            console.error("Error deactivating user:", err);
             setError(err.message);
         }
     };
@@ -151,10 +200,15 @@ export default function ManageUsers() {
             setError("New password cannot be empty.");
             return;
         }
+        const adminId = getLoggedInAdminId(); // Get the admin ID
+        if (!adminId) {
+            console.error('Admin User ID not found for password update.');
+            return;
+        }
         try {
             const response = await axios.put(
-                `http://localhost:8080/Users/${passwordUpdateUser.userId}/password`,
-                { newPassword: newPassword } // Changed key to 'newPassword'
+                `http://localhost:8080/Users/${passwordUpdateUser.userId}/password?adminIdFromFrontend=${adminId}`, // Append adminId
+                { newPassword: newPassword }
             );
             if (response.data.success) {
                 fetchUsers();
@@ -299,4 +353,5 @@ export default function ManageUsers() {
             </div>
         </div>
     );
+
 }

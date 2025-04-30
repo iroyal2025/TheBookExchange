@@ -1,7 +1,6 @@
 package edu.famu.thebookexchange.controller;
 
 import edu.famu.thebookexchange.model.Rest.RestNotification;
-import edu.famu.thebookexchange.model.Rest.RestUsers;
 import edu.famu.thebookexchange.service.NotificationService;
 import edu.famu.thebookexchange.service.UsersService; // Import UsersService
 import edu.famu.thebookexchange.util.ApiResponse;
@@ -113,11 +112,11 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<List<RestNotification>>> getAdminNotifications(@RequestParam String userId) {
         logger.info("Received GET request to /Notifications/admin for userId: {}", userId);
         try {
-            List<RestNotification> adminNotifications = notificationService.getNotificationsForUser(userId); // Use a new service method
-            return ResponseEntity.ok(new ApiResponse<>(true, "Admin Notifications", adminNotifications, null));
+            List<RestNotification> notifications = notificationService.getAdminNotifications(userId);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Admin Notifications", notifications, null));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error retrieving notifications for user {}: {}", userId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving notifications", null, e.getMessage()));
+            logger.error("Error retrieving admin notifications for user {}: {}", userId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving admin notifications", null, e.getMessage()));
         }
     }
 }

@@ -8,16 +8,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map; // Import the Map class
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import java.lang.InterruptedException;
 
 @RestController
 @RequestMapping("/Users")
@@ -25,45 +21,33 @@ public class UsersController {
 
     private static final Logger logger = LoggerFactory.getLogger(UsersController.class);
 
-    private final UsersService userService; // Declare instance variable
+    private final UsersService userService;
 
-    @Autowired // Inject UsersService via constructor
+    @Autowired
     public UsersController(UsersService userService) {
         this.userService = userService;
-    }
-
-    private String getCurrentAdminId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof UserDetails) {
-            return ((UserDetails) authentication.getPrincipal()).getUsername();
-        } else if (authentication != null) {
-            return authentication.getPrincipal().toString();
-        }
-        return null;
     }
 
     @GetMapping("/")
     public ResponseEntity<ApiResponse<List<RestUsers>>> getAllUsers() {
         try {
             List<RestUsers> restUsers = userService.getAllUsers();
-
             if (!restUsers.isEmpty()) {
                 return ResponseEntity.ok(new ApiResponse<>(true, "Users List", restUsers, null));
             } else {
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).body(new ApiResponse<>(true, "No users found", null, null));
             }
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error retrieving users: {}", e.getMessage(), e); // Log the error
+            logger.error("Error retrieving users: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error retrieving users", null, e.getMessage()));
         }
     }
 
     @PostMapping("/add")
-    public ResponseEntity<ApiResponse<String>> addUser(@RequestBody RestUsers user) {
-        logger.info("Received POST request to /Users/add with data: {}", user);
-        String adminId = getCurrentAdminId();
+    public ResponseEntity<ApiResponse<String>> addUser(@RequestBody RestUsers user, @RequestParam(required = false) String adminIdFromFrontend) {
+        logger.info("Received POST request to /Users/add with data: {}, adminId from frontend: {}", user, adminIdFromFrontend);
         try {
-            String userId = userService.addUser(user, adminId); // Pass adminId
+            String userId = userService.addUser(user, adminIdFromFrontend);
             return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(true, "User created", userId, null));
         } catch (InterruptedException | ExecutionException e) {
             logger.error("Error creating user: {}", e.getMessage(), e);
@@ -72,11 +56,10 @@ public class UsersController {
     }
 
     @DeleteMapping("/delete")
-    public ResponseEntity<ApiResponse<String>> deleteUserByEmail(@RequestParam String email) {
-        logger.info("Received DELETE request to /Users/delete with email: {}", email);
-        String adminId = getCurrentAdminId();
+    public ResponseEntity<ApiResponse<String>> deleteUserByEmail(@RequestParam String email, @RequestParam(required = false) String adminIdFromFrontend) {
+        logger.info("Received DELETE request to /Users/delete with email: {}, adminId from frontend: {}", email, adminIdFromFrontend);
         try {
-            boolean deleted = userService.deleteUserByEmail(email, adminId); // Pass adminId
+            boolean deleted = userService.deleteUserByEmail(email, adminIdFromFrontend);
             if (deleted) {
                 return ResponseEntity.ok(new ApiResponse<>(true, "User deleted successfully", null, null));
             } else {
@@ -89,11 +72,12 @@ public class UsersController {
     }
 
     @DeleteMapping("/{userId}")
-    public ResponseEntity<ApiResponse<String>> deleteUser(@PathVariable String userId) {
-        logger.info("Received DELETE request to /Users/{} with userId: {}", userId, userId);
-        String adminId = getCurrentAdminId();
+    public ResponseEntity<ApiResponse<String>> deleteUser(
+            @PathVariable String userId,
+            @RequestParam(value = "adminIdFromFrontend", required = false) String adminIdFromFrontend) {
+        logger.info("Received DELETE request to /Users/{} with userId: {}, adminId from frontend: {}", userId, adminIdFromFrontend);
         try {
-            boolean deleted = userService.deleteUser(userId, adminId); // Pass adminId
+            boolean deleted = userService.deleteUser(userId, adminIdFromFrontend);
             if (deleted) {
                 return ResponseEntity.ok(new ApiResponse<>(true, "User deleted successfully", null, null));
             } else {
@@ -106,28 +90,26 @@ public class UsersController {
     }
 
     @PutMapping("/{userId}")
-    public ResponseEntity<ApiResponse<String>> updateUser(@PathVariable String userId, @RequestBody RestUsers updatedUser) {
-        logger.info("Received PUT request to /Users/{} with data: {}", userId, updatedUser); // Log the request
-        String adminId = getCurrentAdminId();
+    public ResponseEntity<ApiResponse<String>> updateUser(@PathVariable String userId, @RequestBody RestUsers updatedUser, @RequestParam(required = false) String adminIdFromFrontend) {
+        logger.info("Received PUT request to /Users/{} with data: {}, adminId from frontend: {}", userId, updatedUser, adminIdFromFrontend);
         try {
-            String updateTime = userService.updateUser(userId, updatedUser, adminId); // Pass adminId
+            String updateTime = userService.updateUser(userId, updatedUser, adminIdFromFrontend);
             return ResponseEntity.ok(new ApiResponse<>(true, "User updated", updateTime, null));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error updating user: {}", e.getMessage(), e); // Log the error
+            logger.error("Error updating user: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error updating user", null, e.getMessage()));
         }
     }
 
     @PutMapping("/{userId}/email")
-    public ResponseEntity<ApiResponse<String>> updateUserEmail(@PathVariable String userId, @RequestBody Map<String, String> requestBody) {
-        logger.info("Received PUT request to /Users/{}/email with data: {}", userId, requestBody);
+    public ResponseEntity<ApiResponse<String>> updateUserEmail(@PathVariable String userId, @RequestBody Map<String, String> requestBody, @RequestParam(required = false) String adminIdFromFrontend) {
+        logger.info("Received PUT request to /Users/{}/email with data: {}, adminId from frontend: {}", userId, requestBody, adminIdFromFrontend);
         String newEmail = requestBody.get("email");
         if (newEmail == null || newEmail.isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "Invalid request", null, "Email cannot be empty"));
         }
-        String adminId = getCurrentAdminId();
         try {
-            String updateTime = userService.updateUserEmail(userId, newEmail, adminId); // Pass adminId
+            String updateTime = userService.updateUserEmail(userId, newEmail, adminIdFromFrontend);
             return ResponseEntity.ok(new ApiResponse<>(true, "Email updated successfully", updateTime, null));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error updating user email: {}", e.getMessage(), e);
@@ -136,28 +118,28 @@ public class UsersController {
     }
 
     @PutMapping("/{userId}/password")
-    public ResponseEntity<ApiResponse<String>> updateUserPassword(@PathVariable String userId, @RequestBody Map<String, String> requestBody) {
-        logger.warn("Received PUT request to /Users/{}/password - Storing RAW PASSWORD!", userId);
+    public ResponseEntity<ApiResponse<String>> updateUserPassword(
+            @PathVariable String userId,
+            @RequestBody Map<String, String> requestBody,
+            @RequestParam(value = "adminIdFromFrontend", required = false) String adminIdFromFrontend) {
         String newPassword = requestBody.get("newPassword");
         if (newPassword == null || newPassword.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiResponse<>(false, "Invalid request", null, "New password cannot be empty"));
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "New password cannot be empty.", null, null));
         }
-        // No admin notification for password update in UsersService
         try {
-            String updateTime = userService.updateUserPassword(userId, newPassword, null); // Pass null for adminId
-            return ResponseEntity.ok(new ApiResponse<>(true, "Password updated successfully", updateTime, null)); // Updated message
+            String updateTime = userService.updateUserPassword(userId, newPassword, adminIdFromFrontend);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Password updated successfully.", updateTime, null));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error updating user password: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Error updating user password", null, e.getMessage()));
+            logger.error("Error updating password for user {}: {}", userId, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(new ApiResponse<>(false, "Error updating password.", null, e.getMessage()));
         }
     }
 
     @PutMapping("/{userId}/activate")
-    public ResponseEntity<ApiResponse<Boolean>> activateUser(@PathVariable String userId) {
-        logger.info("Received PUT request to /Users/{}/activate", userId);
-        String adminId = getCurrentAdminId();
+    public ResponseEntity<ApiResponse<Boolean>> activateUser(@PathVariable String userId, @RequestParam(required = false) String adminIdFromFrontend) {
+        logger.info("Received PUT request to /Users/{}/activate, adminId from frontend: {}", userId, adminIdFromFrontend);
         try {
-            boolean activated = userService.setUserActivation(userId, true, adminId); // Pass adminId
+            boolean activated = userService.setUserActivation(userId, true, adminIdFromFrontend);
             return ResponseEntity.ok(new ApiResponse<>(true, "User activated", activated, null));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error activating user: {}", e.getMessage(), e);
@@ -166,11 +148,10 @@ public class UsersController {
     }
 
     @PutMapping("/{userId}/deactivate")
-    public ResponseEntity<ApiResponse<Boolean>> deactivateUser(@PathVariable String userId) {
-        logger.info("Received PUT request to /Users/{}/deactivate", userId);
-        String adminId = getCurrentAdminId();
+    public ResponseEntity<ApiResponse<Boolean>> deactivateUser(@PathVariable String userId, @RequestParam(required = false) String adminIdFromFrontend) {
+        logger.info("Received PUT request to /Users/{}/deactivate, adminId from frontend: {}", userId, adminIdFromFrontend);
         try {
-            boolean deactivated = userService.setUserActivation(userId, false, adminId); // Pass adminId
+            boolean deactivated = userService.setUserActivation(userId, false, adminIdFromFrontend);
             return ResponseEntity.ok(new ApiResponse<>(true, "User deactivated", deactivated, null));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error deactivating user: {}", e.getMessage(), e);
@@ -205,11 +186,11 @@ public class UsersController {
     @PostMapping("/students/email/{email}/student/{addStudentEmail}")
     public ResponseEntity<ApiResponse<String>> addStudentToParent(
             @PathVariable String email,
-            @PathVariable String addStudentEmail) {
-        logger.info("Received POST request to /Users/students/email/{}/student/{}", email, addStudentEmail);
-        String adminId = getCurrentAdminId();
+            @PathVariable String addStudentEmail,
+            @RequestParam(required = false) String adminIdFromFrontend) {
+        logger.info("Received POST request to /Users/students/email/{}/student/{}, adminId from frontend: {}", email, addStudentEmail, adminIdFromFrontend);
         try {
-            userService.addStudentToParent(email, addStudentEmail, adminId); // Pass adminId
+            userService.addStudentToParent(email, addStudentEmail, adminIdFromFrontend);
             return ResponseEntity.ok(new ApiResponse<>(true, "Student added successfully", null, null));
         } catch (Exception e) {
             logger.error("Error adding student: {}", e.getMessage(), e);
@@ -220,11 +201,11 @@ public class UsersController {
     @DeleteMapping("/students/email/{parentEmail}/student/{studentEmail}")
     public ResponseEntity<ApiResponse<String>> removeStudentFromParent(
             @PathVariable String parentEmail,
-            @PathVariable String studentEmail) {
-        logger.info("Received DELETE request to /Users/students/email/{}/student/{}", parentEmail, studentEmail);
-        String adminId = getCurrentAdminId();
+            @PathVariable String studentEmail,
+            @RequestParam(required = false) String adminIdFromFrontend) {
+        logger.info("Received DELETE request to /Users/students/email/{}/student/{}, adminId from frontend: {}", parentEmail, studentEmail, adminIdFromFrontend);
         try {
-            userService.removeStudentFromParent(parentEmail, studentEmail, adminId); // Pass adminId
+            userService.removeStudentFromParent(parentEmail, studentEmail, adminIdFromFrontend);
             return ResponseEntity.ok(new ApiResponse<>(true, "Student removed successfully", null, null));
         } catch (Exception e) {
             logger.error("Error removing student: {}", e.getMessage(), e);

@@ -11,9 +11,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -35,7 +33,6 @@ public class NotificationService {
         logger.info("Adding notification with details: {}", notification);
         DocumentReference docRef = firestore.collection(NOTIFICATIONS_COLLECTION).document();
         notification.setNotificationId(docRef.getId());
-        // Set the timestamp to the current time when the notification is added
         notification.setTimestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC));
         ApiFuture<WriteResult> result = docRef.set(notification);
         logger.info("Notification added with ID: {} at timestamp: {}", docRef.getId(), notification.getTimestamp());
@@ -45,7 +42,8 @@ public class NotificationService {
     public List<RestNotification> getUserNotifications(String userId) throws InterruptedException, ExecutionException, TimeoutException {
         logger.info("Retrieving notifications for userId: {}", userId);
         CollectionReference notificationsCollection = firestore.collection(NOTIFICATIONS_COLLECTION);
-        Query query = notificationsCollection.whereEqualTo("userId", userId).orderBy("timestamp", Query.Direction.DESCENDING);
+        Query query = notificationsCollection.whereEqualTo("userId", userId)
+                .orderBy("timestamp", Query.Direction.DESCENDING);
         ApiFuture<QuerySnapshot> querySnapshot = query.get();
         List<QueryDocumentSnapshot> documents;
         try {
@@ -65,7 +63,7 @@ public class NotificationService {
     public boolean markNotificationAsRead(String notificationId) throws InterruptedException, ExecutionException, TimeoutException {
         logger.info("Marking notification with ID: {} as read", notificationId);
         DocumentReference docRef = firestore.collection(NOTIFICATIONS_COLLECTION).document(notificationId);
-        ApiFuture<WriteResult> result = docRef.update("isRead", true);
+        ApiFuture<WriteResult> result = docRef.update("read", true); // Corrected field name to "read"
         try {
             result.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
             logger.info("Notification {} marked as read successfully.", notificationId);
@@ -86,11 +84,14 @@ public class NotificationService {
     public String createNotification(String userId, String type, String message, String link, String relatedItemId) throws InterruptedException, ExecutionException {
         logger.info("Creating notification for userId: {}, type: {}, message: {}, link: {}, relatedItemId: {}",
                 userId, type, message, link, relatedItemId);
+        if (userId == null || userId.trim().isEmpty()) {
+            logger.error("Attempted to create notification with an invalid userId.");
+            return null; // Or throw IllegalArgumentException
+        }
         RestNotification notification = new RestNotification();
         notification.setUserId(userId);
         notification.setType(type);
         notification.setMessage(message);
-        // Set the timestamp to the current time when the notification is created
         notification.setTimestamp(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC));
         notification.setRead(false);
         notification.setLink(link);
@@ -102,7 +103,6 @@ public class NotificationService {
         return docRef.getId();
     }
 
-    // Example of how you might call this from other services (e.g., BooksService)
     public void handleWishlistMatch(String userId, String wishlistItemTitle, String bookId, String bookTitle) throws InterruptedException, ExecutionException {
         String message = "A book matching your wishlist item '" + wishlistItemTitle + "' ('" + bookTitle + "') has been added!";
         String link = "/books/" + bookId;
@@ -197,46 +197,40 @@ public class NotificationService {
         }
     }
 
-    public void notifyAdminUserDeleted(String adminId, String deletedUserId, String deletedUserEmail) throws InterruptedException, ExecutionException {
-        String message = String.format("Admin '%s' deleted user with ID '%s' (Email: %s).", adminId, deletedUserId, deletedUserEmail);
+    public void notifyAdminUserDeleted(String adminUserId, String deletedUserId, String deletedUserEmail) throws InterruptedException, ExecutionException {
+        String message = String.format("Admin deleted user with ID '%s' (Email: %s).", deletedUserId, deletedUserEmail);
         String link = "/admin-dashboard/users"; // Link to the user management page
-        createNotification(deletedUserId, "user_deleted", message, link, deletedUserId); // Changed userId to deletedUserId
-        logger.info("Generated 'user_deleted' notification for admin {} about deleted user {}.", adminId, deletedUserId);
+        createNotification(adminUserId, "user_deleted", message, link, deletedUserId);
+        logger.info("Generated 'user_deleted' notification for admin {} about deleted user {}.", adminUserId, deletedUserId);
     }
 
-    public void notifyAdminUserEdited(String adminId, String editedUserId, String editedUserEmail, String changes) throws InterruptedException, ExecutionException {
-        String message = String.format("Admin '%s' edited user with ID '%s' (Email: %s). Changes: %s", adminId, editedUserId, editedUserEmail, changes);
+    public void notifyAdminUserEdited(String adminUserId, String editedUserId, String editedUserEmail, String changes) throws InterruptedException, ExecutionException {
+        String message = String.format("Admin edited user with ID '%s' (Email: %s). Changes: %s", editedUserId, editedUserEmail, changes);
         String link = "/admin-dashboard/users/edit/" + editedUserId; // Link to the edited user's page
-        createNotification(editedUserId, "user_edited", message, link, editedUserId); // Changed userId to editedUserId
-        logger.info("Generated 'user_edited' notification for admin {} about edited user {}.", adminId, editedUserId);
+        createNotification(adminUserId, "user_edited", message, link, editedUserId);
+        logger.info("Generated 'user_edited' notification for admin {} about edited user {}.", adminUserId, editedUserId);
     }
 
-    public void notifyAdminUserActivated(String adminId, String activatedUserId, String activatedUserEmail) throws InterruptedException, ExecutionException {
-        String message = String.format("Admin '%s' activated user with ID '%s' (Email: %s).", adminId, activatedUserId, activatedUserEmail);
+    public void notifyAdminUserActivated(String adminUserId, String activatedUserId, String activatedUserEmail) throws InterruptedException, ExecutionException {
+        String message = String.format("Admin activated user with ID '%s' (Email: %s).", activatedUserId, activatedUserEmail);
         String link = "/admin-dashboard/users/edit/" + activatedUserId; // Link to the activated user's page
-        createNotification(activatedUserId, "user_activated", message, link, activatedUserId); // Changed userId to activatedUserId
-        logger.info("Generated 'user_activated' notification for admin {} about activated user {}.", adminId, activatedUserId);
+        createNotification(adminUserId, "user_activated", message, link, activatedUserId);
+        logger.info("Generated 'user_activated' notification for admin {} about activated user {}.", adminUserId, activatedUserId);
     }
 
-    public void notifyAdminUserDeactivated(String adminId, String deactivatedUserId, String deactivatedUserEmail) throws InterruptedException, ExecutionException {
-        String message = String.format("Admin '%s' deactivated user with ID '%s' (Email: %s).", adminId, deactivatedUserId, deactivatedUserEmail);
+    public void notifyAdminUserDeactivated(String adminUserId, String deactivatedUserId, String deactivatedUserEmail) throws InterruptedException, ExecutionException {
+        String message = String.format("Admin deactivated user with ID '%s' (Email: %s).", deactivatedUserId, deactivatedUserEmail);
         String link = "/admin-dashboard/users/edit/" + deactivatedUserId; // Link to the deactivated user's page
-        createNotification(deactivatedUserId, "user_deactivated", message, link, deactivatedUserId); // Changed userId to deactivatedUserId
-        logger.info("Generated 'user_deactivated' notification for admin {} about deactivated user {}.", adminId, deactivatedUserId);
+        createNotification(adminUserId, "user_deactivated", message, link, deactivatedUserId);
+        logger.info("Generated 'user_deactivated' notification for admin {} about deactivated user {}.", adminUserId, deactivatedUserId);
     }
 
-    public void notifyAdminUserAdded(String adminId, String addedUserId, String addedUserEmail) throws InterruptedException, ExecutionException {
-        String message = String.format("Admin '%s' added a new user with ID '%s' (Email: %s).", adminId, addedUserId, addedUserEmail);
-        String link = "/admin-dashboard/users/edit/" + addedUserId; // Link to the newly added user's edit page
-        createNotification(addedUserId, "user_added", message, link, addedUserId); // Changed userId to addedUserId
-        logger.info("Generated 'user_added' notification for admin {} about added user {}.", adminId, addedUserId);
-    }
+    // Removed notifyAdminUserAdded as its logic is now within createNotification called by UsersService
 
-    public List<RestNotification> getAdminNotifications() throws InterruptedException, ExecutionException, TimeoutException {
-        logger.info("Retrieving admin notifications");
+    public List<RestNotification> getAdminNotifications(String adminId) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Retrieving admin notifications for adminId: {}", adminId);
         CollectionReference notificationsCollection = firestore.collection(NOTIFICATIONS_COLLECTION);
-        Query query = notificationsCollection
-                .whereIn("type", List.of("user_added", "user_deleted", "user_edited", "user_activated", "user_deactivated"))
+        Query query = notificationsCollection.whereEqualTo("userId", adminId)
                 .orderBy("timestamp", Query.Direction.DESCENDING);
 
         ApiFuture<QuerySnapshot> querySnapshot = query.get();
@@ -244,35 +238,18 @@ public class NotificationService {
         try {
             documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
         } catch (TimeoutException e) {
-            logger.error("Timeout occurred while getting admin notifications: {}", e.getMessage(), e);
+            logger.error("Timeout occurred while getting admin notifications for admin {}: {}", adminId, e.getMessage(), e);
             throw e;
         }
         List<RestNotification> notifications = new ArrayList<>();
         for (QueryDocumentSnapshot doc : documents) {
             notifications.add(doc.toObject(RestNotification.class));
         }
-        logger.info("Retrieved {} admin notifications", notifications.size());
+        logger.info("Retrieved {} admin notifications for admin {}", notifications.size(), adminId);
         return notifications;
     }
 
     public List<RestNotification> getNotificationsForUser(String userId) throws InterruptedException, ExecutionException, TimeoutException {
-        logger.info("Retrieving notifications specifically for userId: {}", userId);
-        CollectionReference notificationsCollection = firestore.collection(NOTIFICATIONS_COLLECTION);
-        Query query = notificationsCollection.whereEqualTo("userId", userId).orderBy("timestamp", Query.Direction.DESCENDING);
-        ApiFuture<QuerySnapshot> querySnapshot = query.get();
-        List<QueryDocumentSnapshot> documents;
-        try {
-            documents = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
-        } catch (TimeoutException e) {
-            logger.error("Timeout occurred while getting notifications for user {}: {}", userId, e.getMessage(), e);
-            throw e;
-        }
-        List<RestNotification> notifications = new ArrayList<>();
-        for (QueryDocumentSnapshot doc : documents) {
-            notifications.add(doc.toObject(RestNotification.class));
-        }
-        logger.info("Retrieved {} notifications for user {}", notifications.size(), userId);
-        return notifications;
+        return getUserNotifications(userId);
     }
-
 }

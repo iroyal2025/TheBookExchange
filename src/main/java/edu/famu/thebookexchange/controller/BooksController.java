@@ -1,19 +1,25 @@
 package edu.famu.thebookexchange.controller;
 
+import edu.famu.thebookexchange.model.Rest.RestUsers;
 import edu.famu.thebookexchange.service.BooksService;
+import edu.famu.thebookexchange.service.ExchangeService;
 import edu.famu.thebookexchange.service.UsersService;
 import edu.famu.thebookexchange.util.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import edu.famu.thebookexchange.model.Rest.RestBooks;
 
+import java.awt.print.Book;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/Books")
@@ -23,6 +29,9 @@ public class BooksController {
 
     private final BooksService booksService;
     private final UsersService usersService;
+
+    @Autowired
+    private ExchangeService exchangeService; // Inject ExchangeService
 
     public BooksController(BooksService booksService, UsersService usersService) {
         this.booksService = booksService;
@@ -240,6 +249,115 @@ public class BooksController {
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error("Error removing book with ID '{}' for seller '{}': {}", bookId, sellerEmail, e.getMessage(), e);
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+
+    @GetMapping("/Books/{bookId}/owners")
+    public ResponseEntity<Map<String, Object>> getBookOwners(@PathVariable String bookId, @RequestParam(required = false) String exclude) {
+        logger.info("getBookOwners endpoint was hit with bookId: {} and exclude: {}", bookId, exclude);
+        try {
+            logger.debug("Attempting to retrieve book with ID: {}", bookId);
+            RestBooks book = booksService.findBookById(bookId);
+            logger.debug("Result of findBookById: {}", book);
+
+            if (book != null) {
+                logger.debug("Book found. Checking ownedBy list: {}", book.getOwnedBy());
+                if (book.getOwnedBy() != null) {
+                    List<String> owners = book.getOwnedBy().stream()
+                            .filter(owner -> exclude == null || !owner.equals(exclude))
+                            .collect(Collectors.toList());
+                    logger.debug("Filtered owners: {}", owners);
+                    return ResponseEntity.ok(Map.of("success", true, "data", owners));
+                } else {
+                    logger.warn("Book found with ID {}, but ownedBy list is null.", bookId);
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Book found but has no owners."));
+                }
+            } else {
+                logger.warn("Book not found with ID: {}", bookId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Book not found."));
+            }
+        } catch (Exception e) {
+            logger.error("Error fetching book owners for book ID {}: {}", bookId, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("success", false, "message", "Failed to fetch book owners: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/Exchanges/direct/request")
+    public ResponseEntity<Map<String, Object>> sendDirectExchangeRequest(@RequestBody Map<String, String> payload) {
+        String offeredBookId = payload.get("offeredBookId");
+        String recipientEmail = payload.get("recipientEmail");
+        String requesterEmail = payload.get("requesterEmail");
+
+        if (offeredBookId == null || recipientEmail == null || requesterEmail == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Missing required fields."));
+        }
+
+        try {
+            RestBooks offeredBook = booksService.findBookById(offeredBookId);
+            if (offeredBook == null || !offeredBook.getOwnedBy().contains(requesterEmail)) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Offered book not found or not owned by the requester."));
+            }
+
+            exchangeService.createDirectExchangeRequest(offeredBookId, recipientEmail, requesterEmail); // Implement this service method
+            return ResponseEntity.ok(Map.of("success", true, "message", "Direct exchange request sent successfully."));
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("success", false, "message", "Failed to send direct exchange request: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{bookId}/exchangeable")
+    public ResponseEntity<ApiResponse<String>> markBookAsExchangeable(@PathVariable String bookId, @RequestParam boolean isExchangeable) {
+        logger.info("markBookAsExchangeable endpoint hit for bookId: {} with isExchangeable: {}", bookId, isExchangeable);
+        try {
+            boolean updated = booksService.updateBookExchangeableStatus(bookId, isExchangeable);
+            if (updated) {
+                return ResponseEntity.ok(new ApiResponse<>(true, "Book exchangeable status updated successfully", null, null));
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(false, "Book not found", null, null));
+            }
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            logger.error("Error updating book exchangeable status: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(new ApiResponse<>(false, "Error updating book exchangeable status", null, e.getMessage()));
+        }
+    }
+
+    @GetMapping("/exchangeable")
+    public ResponseEntity<Map<String, Object>> getExchangeableBooks(@RequestParam String userId) {
+        if (userId == null || userId.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "User ID is required."));
+        }
+        try {
+            List<RestBooks> exchangeableBooks = booksService.findExchangeableBooks(userId);
+            return ResponseEntity.ok(Map.of("success", true, "data", exchangeableBooks));
+        } catch (Exception e) {
+            logger.error("Failed to fetch exchangeable books for user {}: {}", userId, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("success", false, "message", "Failed to fetch exchangeable books: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{bookId}/owners/students")
+    public ResponseEntity<Map<String, Object>> getStudentBookOwners(@PathVariable String bookId, @RequestParam(required = false) String exclude) {
+        try {
+            RestBooks book = booksService.findBookById(bookId);
+            if (book != null && book.getOwnedBy() != null) {
+                List<String> studentOwners = new ArrayList<>();
+                for (String ownerEmail : book.getOwnedBy()) {
+                    if (exclude == null || !ownerEmail.equals(exclude)) {
+                        // Assuming you have a method in UsersService to get user details by email
+                        RestUsers owner = usersService.getUserByEmail(ownerEmail);
+                        if (owner != null && "student".equals(owner.getRole())) {
+                            studentOwners.add(ownerEmail);
+                        }
+                    }
+                }
+                return ResponseEntity.ok(Map.of("success", true, "data", studentOwners));
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "message", "Book not found or has no owners."));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("success", false, "message", "Failed to fetch student book owners: " + e.getMessage()));
         }
     }
 }

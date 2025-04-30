@@ -52,7 +52,7 @@ const AdminNotificationsPage = () => {
     const deleteNotification = async (notificationId) => {
         if (window.confirm('Are you sure you want to delete this notification?')) {
             try {
-                const response = await fetch(`http://localhost:8080/Notifications/${notificationId}`, {
+                const response = await fetch(`http://localhost:8080/Notifications/byMessage?message=${notifications.find(n => n.notificationId === notificationId)?.message}`, {
                     method: 'DELETE',
                 });
                 if (!response.ok) {
@@ -70,33 +70,6 @@ const AdminNotificationsPage = () => {
                 setError(err.message);
                 toast.error('Failed to delete notification.');
             }
-        }
-    };
-
-    const markAsRead = async (notificationId) => {
-        try {
-            const response = await fetch(`http://localhost:8080/Notifications/${notificationId}/read`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ isRead: true }),
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to mark notification as read');
-            }
-            const data = await response.json();
-            if (data.success) {
-                setNotifications(notifications.map(n =>
-                    n.notificationId === notificationId ? { ...n, isRead: true } : n
-                ));
-                // Optionally, provide a toast notification: toast.success('Notification marked as read!');
-            } else {
-                toast.error(data.message || 'Failed to mark as read.');
-            }
-        } catch (err) {
-            toast.error('Failed to mark as read.');
         }
     };
 
@@ -166,16 +139,6 @@ const AdminNotificationsPage = () => {
                                     >
                                         Delete
                                     </Button>
-                                    {!notification.isRead && (
-                                        <Button
-                                            onClick={() => markAsRead(notification.notificationId)}
-                                            className="bg-gray-300 text-gray-700 rounded-md text-sm hover:bg-gray-400 focus:outline-none"
-                                            size="sm"
-                                        >
-                                            Mark Read
-                                        </Button>
-                                    )}
-                                    {notification.isRead && <span className="text-gray-500 text-sm">Read</span>}
                                 </td>
                             </tr>
                         ))}

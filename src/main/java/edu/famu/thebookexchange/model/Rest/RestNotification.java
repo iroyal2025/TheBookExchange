@@ -1,20 +1,24 @@
 package edu.famu.thebookexchange.model.Rest;
 
 public class RestNotification {
+
     private String notificationId;
     private String userId;
     private String type;
     private String message;
-    private long timestamp; // Storing as seconds since epoch for Firestore compatibility
+    private long timestamp;
     private boolean isRead;
     private String link;
     private String relatedItemId;
+    private boolean isAdmin; // Add this field
 
-    // Constructors (default and with fields)
+    // Default constructor (required for Firebase)
     public RestNotification() {
     }
 
-    public RestNotification(String userId, String type, String message, long timestamp, boolean isRead, String link, String relatedItemId) {
+    // Constructor with all fields (optional, but good practice)
+    public RestNotification(String notificationId, String userId, String type, String message, long timestamp, boolean isRead, String link, String relatedItemId, boolean isAdmin) {
+        this.notificationId = notificationId;
         this.userId = userId;
         this.type = type;
         this.message = message;
@@ -22,6 +26,7 @@ public class RestNotification {
         this.isRead = isRead;
         this.link = link;
         this.relatedItemId = relatedItemId;
+        this.isAdmin = isAdmin;
     }
 
     // Getters
@@ -57,6 +62,10 @@ public class RestNotification {
         return relatedItemId;
     }
 
+    public boolean isAdmin() {
+        return isAdmin;
+    }
+
     // Setters
     public void setNotificationId(String notificationId) {
         this.notificationId = notificationId;
@@ -88,5 +97,9 @@ public class RestNotification {
 
     public void setRelatedItemId(String relatedItemId) {
         this.relatedItemId = relatedItemId;
+    }
+
+    public void setAdmin(boolean admin) { // Add this setter
+        isAdmin = admin;
     }
 }

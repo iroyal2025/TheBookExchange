@@ -4,18 +4,20 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
 import edu.famu.thebookexchange.model.Rest.RestBooks;
+import edu.famu.thebookexchange.model.Rest.RestUsers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.awt.print.Book;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+
+
 
 @Service
 public class BooksService {
@@ -632,4 +634,68 @@ public class BooksService {
             return false;
         }
     }
+
+    public String getBookTitle(String bookId) throws InterruptedException, ExecutionException, TimeoutException {
+        DocumentReference bookRef = firestore.collection(BOOKS_COLLECTION).document(bookId);
+        ApiFuture<DocumentSnapshot> future = bookRef.get();
+        DocumentSnapshot document = future.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+        if (document.exists()) {
+            return document.getString("title"); // Assuming your book documents have a 'title' field
+        } else {
+            logger.warn("Book with ID {} not found.", bookId);
+            return null;
+        }
+    }
+
+
+    public RestBooks findBookById(String bookId) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Finding book by ID: {}", bookId);
+        DocumentReference docRef = firestore.collection(BOOKS_COLLECTION).document(bookId);
+        ApiFuture<DocumentSnapshot> future = docRef.get();
+        DocumentSnapshot document = future.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+        if (document.exists()) {
+            RestBooks book = document.toObject(RestBooks.class);
+            if (book != null) {
+                book.setBookId(document.getId()); // Ensure bookId is set
+            }
+            logger.info("Found book: {}", book);
+            return book;
+        } else {
+            logger.warn("Book with ID {} not found.", bookId);
+            return null;
+        }
+    }
+
+    public boolean updateBookExchangeableStatus(String bookId, boolean isExchangeable) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Updating exchangeable status for book ID {} to {}", bookId, isExchangeable);
+        DocumentReference bookRef = firestore.collection(BOOKS_COLLECTION).document(bookId);
+        ApiFuture<WriteResult> writeResult = bookRef.update("isExchangeable", isExchangeable);
+        writeResult.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+        logger.debug("Exchangeable status updated successfully for book ID {}", bookId);
+        return true; // Consider adding more robust error handling
+    }
+
+    public List<RestBooks> findExchangeableBooks(String currentUserId) throws InterruptedException, ExecutionException, TimeoutException {
+        logger.info("Finding exchangeable books owned by students, excluding user ID: {}", currentUserId);
+        CollectionReference booksCollection = firestore.collection(BOOKS_COLLECTION);
+        List<RestBooks> exchangeableBooks = new ArrayList<>();
+
+        ApiFuture<QuerySnapshot> querySnapshot = booksCollection.get();
+        List<QueryDocumentSnapshot> bookDocuments = querySnapshot.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS).getDocuments();
+
+        for (QueryDocumentSnapshot bookDoc : bookDocuments) {
+            RestBooks book = documentSnapshotToRestBooks(bookDoc);
+            if (book.getUserId() != null && !book.getUserId().equals(currentUserId)) {
+                // Fetch the owner's role
+                DocumentSnapshot userSnapshot = firestore.collection(USERS_COLLECTION).document(book.getUserId()).get().get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+                if (userSnapshot.exists() && "student".equals(userSnapshot.getString("role"))) {
+                    exchangeableBooks.add(book);
+                }
+            }
+        }
+        logger.debug("Found {} exchangeable books owned by students (excluding current user).", exchangeableBooks.size());
+        return exchangeableBooks;
+    }
+
+
 }
