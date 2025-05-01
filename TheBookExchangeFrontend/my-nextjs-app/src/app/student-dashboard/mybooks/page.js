@@ -142,49 +142,13 @@ export default function MyBooks({ onRatingSubmitted }) {
         }
     };
 
-    const handleInitiateExchange = (bookId) => {
-        console.log('MyBooks: handleInitiateExchange - currentUser:', currentUser);
-        setOfferedBookForDirectExchange(bookId);
-        setDirectExchangeModalOpen(true); // Just open the modal to confirm the general offer
-    };
-
-    const handleSendDirectExchangeRequest = async () => {
-        if (!offeredBookForDirectExchange) {
-            toast.error('Please select a book you are offering for exchange.');
-            return;
-        }
-
-        if (!currentUser?.uid) {
-            toast.error('User authentication details are not yet available. Please try again.');
-            return;
-        }
-
-        setDirectExchangeErrorMessage(null);
-        setDirectExchangeSuccessMessage(null);
-
-        try {
-            const requesterId = currentUser.uid;
-
-            const response = await axios.post('http://localhost:8080/exchanges/direct', { // Changed URL here
-                offeredBookId: offeredBookForDirectExchange,
-                requesterId: requesterId,
-            });
-
-            if (response.data.success) {
-                toast.success('Your direct exchange offer has been sent to other students!');
-                setDirectExchangeSuccessMessage('Your direct exchange offer has been sent to other students!');
-                setDirectExchangeModalOpen(false);
-                setOfferedBookForDirectExchange(null);
-            } else {
-                toast.error(response.data.message || 'Failed to send direct exchange request.');
-                setDirectExchangeErrorMessage(response.data.message || 'Failed to send direct exchange request.');
-            }
-        } catch (error) {
-            console.error('MyBooks: Error sending direct exchange request:', error);
-            toast.error('An error occurred while sending the direct exchange request.');
-            setDirectExchangeErrorMessage('An error occurred while sending the direct exchange request.');
-        }
-    };
+    // The following functions and state related to direct exchange have been removed:
+    // - directExchangeModalOpen
+    // - offeredBookForDirectExchange
+    // - directExchangeSuccessMessage
+    // - directExchangeErrorMessage
+    // - handleInitiateExchange
+    // - handleSendDirectExchangeRequest
 
     return (
         <div className="min-h-screen bg-gradient-to-r from-orange-500 to-green-500 flex flex-col items-center justify-center">
@@ -201,11 +165,6 @@ export default function MyBooks({ onRatingSubmitted }) {
             {rateSellerSuccessMessage && (
                 <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-green-500 text-white p-4 rounded-md z-50">
                     {rateSellerSuccessMessage}
-                </div>
-            )}
-            {directExchangeSuccessMessage && (
-                <div className="fixed top-28 left-1/2 transform -translate-x-1/2 bg-green-500 text-white p-4 rounded-md z-50">
-                    {directExchangeSuccessMessage}
                 </div>
             )}
             <div className="bg-white p-10 rounded-2xl shadow-2xl text-center w-full max-w-4xl">
@@ -243,13 +202,7 @@ export default function MyBooks({ onRatingSubmitted }) {
                                     >
                                         Rate Seller
                                     </Button>
-                                    <Button
-                                        onClick={() => handleInitiateExchange(book.bookId)}
-                                        variant="secondary"
-                                        className="ml-2"
-                                    >
-                                        Exchange
-                                    </Button>
+                                    {/* The Exchange Button has been removed from here */}
                                 </div>
                             </li>
                         ))}
@@ -364,8 +317,8 @@ export default function MyBooks({ onRatingSubmitted }) {
                     </div>
                 </DialogContent>
             </Dialog>
-            {/* Direct Exchange Modal - UPDATED */}
-            <Dialog open={directExchangeModalOpen} onOpenChange={setDirectExchangeModalOpen}>
+            {/* Direct Exchange Modal - REMOVED */}
+            {/* <Dialog open={directExchangeModalOpen} onOpenChange={setDirectExchangeModalOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>Offer Book for Direct Exchange</DialogTitle>
@@ -388,7 +341,7 @@ export default function MyBooks({ onRatingSubmitted }) {
                         </Button>
                     </div>
                 </DialogContent>
-            </Dialog>
+            </Dialog> */}
         </div>
     );
 }
