@@ -1,7 +1,8 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
+import Link from 'next/link'; // Import Link for navigation
 
 export default function StudentDashboard() {
     const router = useRouter();
@@ -30,6 +31,10 @@ export default function StudentDashboard() {
 
     const handleTransactionsClick = () => {
         router.push('/student-dashboard/transactions');
+    };
+
+    const handleWishlistClick = () => {
+        router.push('/student-dashboard/wishlist');// Navigate to the wishlist page
     };
 
     return (
@@ -71,6 +76,12 @@ export default function StudentDashboard() {
                         className="bg-purple-500 text-white hover:bg-purple-600"
                     >
                         Transactions
+                    </Button>
+                    <Button
+                        onClick={handleWishlistClick}
+                        className="bg-yellow-500 text-white hover:bg-yellow-600"
+                    >
+                        Wishlist
                     </Button>
                 </div>
                 <Button onClick={handleLogout} className="mt-6 bg-red-500 text-white hover:bg-red-600">

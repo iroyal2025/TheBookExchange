@@ -4,23 +4,25 @@ package edu.famu.thebookexchange.model.Abstracts;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @NoArgsConstructor
 public abstract class AWishlist {
 
-    @JsonProperty("book requests")
-    private String bookRequests;
+    @JsonProperty("bookRequests")
+    private List<String> bookRequests; // Changed to List<String>
 
-    public AWishlist(String bookRequests) {
+    public AWishlist(List<String> bookRequests) {
         this.bookRequests = bookRequests;
     }
 
     // Manual Getters
-    public String getBookRequests() {
+    public List<String> getBookRequests() {
         return bookRequests;
     }
 
     // Manual Setters
-    public void setBookRequests(String bookRequests) {
+    public void setBookRequests(List<String> bookRequests) {
         this.bookRequests = bookRequests;
     }
 }

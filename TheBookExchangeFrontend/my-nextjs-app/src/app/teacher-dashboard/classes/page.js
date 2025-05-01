@@ -13,7 +13,7 @@ export default function ManageCourses() {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { currentUser } = useContext(AuthContext);
+    const {currentUser} = useContext(AuthContext);
     const [loadingBooks, setLoadingBooks] = useState(false);
     const [selectedCourseBooks, setSelectedCourseBooks] = useState([]);
     const [showCourseBooks, setShowCourseBooks] = useState(false);
@@ -32,7 +32,7 @@ export default function ManageCourses() {
     const [addBookError, setAddBookError] = useState(null);
     const router = useRouter();
     const [successMessage, setSuccessMessage] = useState(null);
-    const [feedback, setFeedback] = useState({ bookId: null, feedbackText: '' });
+    const [feedback, setFeedback] = useState({bookId: null, feedbackText: ''});
     const [feedbackLoading, setFeedbackLoading] = useState(false);
     const [feedbackError, setFeedbackError] = useState(null);
     const [bookFeedback, setBookFeedback] = useState({});
@@ -50,6 +50,7 @@ export default function ManageCourses() {
         isDigital: false,
         digitalCopyPath: '',
     });
+    const [currentCourseName, setCurrentCourseName] = useState(''); // NEW STATE
 
     useEffect(() => {
         const fetchCourses = async () => {
@@ -115,6 +116,7 @@ export default function ManageCourses() {
             if (response.data && response.data.success) {
                 setSelectedCourseBooks(response.data.data);
                 setShowCourseBooks(true);
+                setCurrentCourseName(courseName); // SET COURSE NAME
                 console.log("Course books fetched successfully");
             } else {
                 setError("Failed to fetch course books");
@@ -184,7 +186,7 @@ export default function ManageCourses() {
             if (response.data && response.data.success) {
                 setSuccessMessage("Feedback added successfully!");
                 setTimeout(() => setSuccessMessage(null), 3000);
-                setFeedback({ bookId: null, feedbackText: '' });
+                setFeedback({bookId: null, feedbackText: ''});
                 await fetchFeedback(bookId);
             } else {
                 setFeedbackError("Failed to add feedback");
@@ -213,7 +215,7 @@ export default function ManageCourses() {
         try {
             const response = await axios.get(`http://localhost:8080/Forums/feedback/book/${bookId}`);
             if (response.data && response.data.success) {
-                setBookFeedback({ ...bookFeedback, [bookId]: response.data.data });
+                setBookFeedback({...bookFeedback, [bookId]: response.data.data});
             }
         } catch (err) {
             console.error("Failed to fetch feedback:", err);
@@ -221,6 +223,7 @@ export default function ManageCourses() {
     };
 
     const handleOpenEditBookDialog = (book) => {
+        console.log("Book object before edit:", book); // LOGGING
         setEditingBook(book);
         setEditedBookData({
             title: book.title,
@@ -242,7 +245,7 @@ export default function ManageCourses() {
     };
 
     const handleEditBookInputChange = (e) => {
-        const { name, value, type, checked } = e.target;
+        const {name, value, type, checked} = e.target;
         setEditedBookData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value,
@@ -270,9 +273,8 @@ export default function ManageCourses() {
         }
     };
 
-    if (loading) return <div className="p-4 flex justify-center items-center"><Spinner /></div>;
+    if (loading) return <div className="p-4 flex justify-center items-center"><Spinner/></div>;
     if (error) return <div className="p-4 text-red-600">Error loading courses: {error}</div>;
-
     return (
         <div className="min-h-screen bg-gradient-to-r from-blue-100 to-purple-100 p-6 space-y-6">
             <div className="bg-white p-6 rounded-lg shadow-md">
@@ -312,10 +314,12 @@ export default function ManageCourses() {
             {showCourseBooks && (
                 <div className="bg-white p-6 rounded-lg shadow-md">
                     <h3 className="text-xl font-semibold mb-4 text-gray-800">Books
-                        for {courses.find(course => course.courseId === selectedCourseBooks[0]?.courseId?.id)?.courseName}</h3>
+                        for {currentCourseName} {/* UPDATED COURSE NAME DISPLAY */}
+                    </h3>
                     {successMessage && <p className="text-green-600">{successMessage}</p>}
                     {selectedCourseBooks.map(book => (
-                        <div key={book.bookId} className="border-b border-gray-200 p-3 flex items-center justify-between">
+                        <div key={book.bookId}
+                             className="border-b border-gray-200 p-3 flex items-center justify-between">
                             <div>
                                 <p><strong>Title:</strong> {book.title}</p>
                                 <p><strong>Author:</strong> {book.author}</p>
@@ -335,7 +339,10 @@ export default function ManageCourses() {
                                         </ul>
                                     </div>
                                 )}
-                                <Button onClick={() => setFeedback({ bookId: book.bookId, feedbackText: '' })} variant="outline" className="mt-2">
+                                <Button onClick={() => {
+                                    console.log("Book object before add feedback:", book); // LOGGING
+                                    setFeedback({bookId: book.bookId, feedbackText: ''});
+                                }} variant="outline" className="mt-2">
                                     Add Feedback
                                 </Button>
                                 <Button onClick={() => fetchFeedback(book.bookId)} variant="outline" className="mt-2">
@@ -348,7 +355,10 @@ export default function ManageCourses() {
                                             {bookFeedback[book.bookId].map(fb => (
                                                 <li key={fb.feedbackId}>
                                                     {fb.feedback}
-                                                    <Button onClick={() => handleRemoveFeedback(fb.feedbackId, book.bookId)} variant="outline" size="icon" className="ml-2">
+                                                    <Button onClick={() => {
+                                                        console.log("Book object before remove feedback:", book); // LOGGING
+                                                        handleRemoveFeedback(fb.feedbackId, book.bookId);
+                                                    }} variant="outline" size="icon" className="ml-2">
                                                         X
                                                     </Button>
                                                 </li>
@@ -361,11 +371,12 @@ export default function ManageCourses() {
                                         <Input
                                             placeholder="Feedback"
                                             value={feedback.feedbackText}
-                                            onChange={(e) => setFeedback({ ...feedback, feedbackText: e.target.value })}
+                                            onChange={(e) => setFeedback({...feedback, feedbackText: e.target.value})}
                                             className="mb-2"
                                         />
-                                        <Button onClick={() => handleFeedback(book.bookId, feedback.feedbackText)} disabled={feedbackLoading}>
-                                            {feedbackLoading ? <Spinner /> : "Submit Feedback"}
+                                        <Button onClick={() => handleFeedback(book.bookId, feedback.feedbackText)}
+                                                disabled={feedbackLoading}>
+                                            {feedbackLoading ? <Spinner/> : "Submit Feedback"}
                                         </Button>
                                         {feedbackError && <p className="text-red-500 mt-2">{feedbackError}</p>}
                                     </div>
@@ -387,37 +398,37 @@ export default function ManageCourses() {
                     {showAddBookForm && (
                         <div className="mt-4">
                             <Input placeholder="Title" value={newBook.title}
-                                   onChange={(e) => setNewBook({ ...newBook, title: e.target.value })} className="mb-2" />
+                                   onChange={(e) => setNewBook({...newBook, title: e.target.value})} className="mb-2"/>
                             <Input placeholder="Author" value={newBook.author}
-                                   onChange={(e) => setNewBook({ ...newBook, author: e.target.value })} className="mb-2" />
+                                   onChange={(e) => setNewBook({...newBook, author: e.target.value})} className="mb-2"/>
                             <Input placeholder="Edition" value={newBook.edition}
-                                   onChange={(e) => setNewBook({ ...newBook, edition: e.target.value })}
-                                   className="mb-2" />
+                                   onChange={(e) => setNewBook({...newBook, edition: e.target.value})}
+                                   className="mb-2"/>
                             <Input placeholder="ISBN" value={newBook.ISBN}
-                                   onChange={(e) => setNewBook({ ...newBook, ISBN: e.target.value })} className="mb-2" />
+                                   onChange={(e) => setNewBook({...newBook, ISBN: e.target.value})} className="mb-2"/>
                             <Input placeholder="Condition" value={newBook.condition}
-                                   onChange={(e) => setNewBook({ ...newBook, condition: e.target.value })}
-                                   className="mb-2" />
+                                   onChange={(e) => setNewBook({...newBook, condition: e.target.value})}
+                                   className="mb-2"/>
                             <Input placeholder="Description" value={newBook.description}
-                                   onChange={(e) => setNewBook({ ...newBook, description: e.target.value })}
-                                   className="mb-2" />
+                                   onChange={(e) => setNewBook({...newBook, description: e.target.value})}
+                                   className="mb-2"/>
                             <div className="mb-2">
                                 <label className="block text-sm font-medium text-gray-700">Is Digital</label>
                                 <input
                                     type="checkbox"
                                     checked={newBook.isDigital}
-                                    onChange={(e) => setNewBook({ ...newBook, isDigital: e.target.checked })}
+                                    onChange={(e) => setNewBook({...newBook, isDigital: e.target.checked})}
                                     className="mt-1"
                                 />
                             </div>
                             {newBook.isDigital && (
                                 <Input placeholder="Digital Copy Path" value={newBook.digitalCopyPath}
-                                       onChange={(e) => setNewBook({ ...newBook, digitalCopyPath: e.target.value })}
-                                       className="mb-2" />
+                                       onChange={(e) => setNewBook({...newBook, digitalCopyPath: e.target.value})}
+                                       className="mb-2"/>
                             )}
                             <Button onClick={() => handleAddBook(selectedCourseBooks[0].courseId.id)}
                                     disabled={addBookLoading} className="mt-2">
-                                {addBookLoading ? <Spinner /> : "Submit"}
+                                {addBookLoading ? <Spinner/> : "Submit"}
                             </Button>
                             {addBookError && <p className="text-red-500 mt-2">{addBookError}</p>}
                         </div>
@@ -443,37 +454,43 @@ export default function ManageCourses() {
                             <Label htmlFor="title" className="text-right">
                                 Title
                             </Label>
-                            <Input id="title" name="title" value={editedBookData.title} onChange={handleEditBookInputChange} className="col-span-3" />
+                            <Input id="title" name="title" value={editedBookData.title}
+                                   onChange={handleEditBookInputChange} className="col-span-3"/>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="author" className="text-right">
                                 Author
                             </Label>
-                            <Input id="author" name="author" value={editedBookData.author} onChange={handleEditBookInputChange} className="col-span-3" />
+                            <Input id="author" name="author" value={editedBookData.author}
+                                   onChange={handleEditBookInputChange} className="col-span-3"/>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="edition" className="text-right">
                                 Edition
                             </Label>
-                            <Input id="edition" name="edition" value={editedBookData.edition} onChange={handleEditBookInputChange} className="col-span-3" />
+                            <Input id="edition" name="edition" value={editedBookData.edition}
+                                   onChange={handleEditBookInputChange} className="col-span-3"/>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="isbn" className="text-right">
                                 ISBN
                             </Label>
-                            <Input id="isbn" name="ISBN" value={editedBookData.ISBN} onChange={handleEditBookInputChange} className="col-span-3" />
+                            <Input id="isbn" name="ISBN" value={editedBookData.ISBN}
+                                   onChange={handleEditBookInputChange} className="col-span-3"/>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="condition" className="text-right">
                                 Condition
                             </Label>
-                            <Input id="condition" name="condition" value={editedBookData.condition} onChange={handleEditBookInputChange} className="col-span-3" />
+                            <Input id="condition" name="condition" value={editedBookData.condition}
+                                   onChange={handleEditBookInputChange} className="col-span-3"/>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="description" className="text-right">
                                 Description
                             </Label>
-                            <Input id="description" name="description" value={editedBookData.description} onChange={handleEditBookInputChange} className="col-span-3" />
+                            <Input id="description" name="description" value={editedBookData.description}
+                                   onChange={handleEditBookInputChange} className="col-span-3"/>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="isDigital" className="text-right">
@@ -508,7 +525,7 @@ export default function ManageCourses() {
                             Cancel
                         </Button>
                         <Button type="button" onClick={handleEditBookSubmit} disabled={editBookLoading}>
-                            {editBookLoading ? <Spinner /> : "Save Changes"}
+                            {editBookLoading ? <Spinner/> : "Save Changes"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

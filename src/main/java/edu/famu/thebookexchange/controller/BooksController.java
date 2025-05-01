@@ -13,9 +13,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import edu.famu.thebookexchange.model.Rest.RestBooks;
 
+import java.awt.print.Book;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -354,6 +356,27 @@ public class BooksController {
             }
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("success", false, "message", "Failed to fetch student book owners: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{bookId}")
+    public ResponseEntity<RestBooks> getBookById(@PathVariable String bookId) {
+        try {
+            RestBooks book = booksService.getBookById(bookId);
+            if (book != null) {
+                return new ResponseEntity<>(book, HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Restore interrupted status
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR); // Or a more specific error
+        } catch (ExecutionException e) {
+            // Log the underlying error for debugging
+            e.printStackTrace();
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR); // Or a more specific error based on e.getCause()
+        } catch (TimeoutException e) {
+            return new ResponseEntity<>(HttpStatus.REQUEST_TIMEOUT);
         }
     }
 }

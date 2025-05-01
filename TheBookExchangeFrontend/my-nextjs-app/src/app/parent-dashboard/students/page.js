@@ -63,8 +63,12 @@ export default function ViewStudents() {
         }
     };
 
-    const handleEditBalance = (studentId) => {
+    const handleEditBalanceClick = (studentId) => { // Renamed for clarity
         setEditBalance({ studentId, balance: '' });
+    };
+
+    const handleEditBalanceInputChange = (e) => {
+        setEditBalance(prev => ({ ...prev, balance: e.target.value }));
     };
 
     const handleSaveBalance = async () => {
@@ -85,6 +89,11 @@ export default function ViewStudents() {
         } finally {
             setEditBalanceLoading(false);
         }
+    };
+
+    const handleCancelEditBalance = () => {
+        setEditBalance({ studentId: null, balance: '' });
+        setEditBalanceError(null);
     };
 
     const handleRemoveStudent = async (studentId) => {
@@ -204,9 +213,31 @@ export default function ViewStudents() {
                                 <React.Fragment key={student.email}>
                                     <tr className="border-b border-gray-200">
                                         <td className="p-2">{student.email}</td>
-                                        <td className="p-2">${student.balance}</td>
+                                        <td className="p-2">
+                                            {editBalance.studentId === student.email ? (
+                                                <div className="flex items-center space-x-2">
+                                                    <Input
+                                                        type="number"
+                                                        value={editBalance.balance}
+                                                        onChange={handleEditBalanceInputChange}
+                                                        className="w-24"
+                                                    />
+                                                    <Button onClick={handleSaveBalance} disabled={editBalanceLoading}>
+                                                        {editBalanceLoading ? <Spinner size="sm" /> : "Save"}
+                                                    </Button>
+                                                    <Button onClick={handleCancelEditBalance} variant="secondary">
+                                                        Cancel
+                                                    </Button>
+                                                    {editBalanceError && <p className="text-red-500 mt-1">{editBalanceError}</p>}
+                                                </div>
+                                            ) : (
+                                                <span>${student.balance}</span>
+                                            )}
+                                        </td>
                                         <td className="p-2 space-x-2">
-                                            <Button onClick={() => handleEditBalance(student.email)}>Edit Balance</Button>
+                                            {editBalance.studentId !== student.email && (
+                                                <Button onClick={() => handleEditBalanceClick(student.email)}>Edit Balance</Button>
+                                            )}
                                             <Button onClick={() => handleRemoveStudent(student.email)} disabled={removeLoading === student.email}>
                                                 {removeLoading === student.email ? <Spinner size="sm" /> : "Remove"}
                                             </Button>

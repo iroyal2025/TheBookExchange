@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import axios from '../lib/axiosConfig';
 import { useRouter } from 'next/navigation';
 import { AuthContext } from '../context/AuthContext'; // Import AuthContext
@@ -7,14 +7,24 @@ import { AuthContext } from '../context/AuthContext'; // Import AuthContext
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState('student'); // Default role
+    const [role, setRole] = useState('student'); // Default role for account creation
     const [major, setMajor] = useState('');
     const [profilePicture, setProfilePicture] = useState('');
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState(''); // Add success message state
     const router = useRouter();
-    const { loginWithEmailAndPassword } = useContext(AuthContext); // Access login function
+    const { loginWithEmailAndPassword, user } = useContext(AuthContext); // Access login function and user state
     const [isCreatingAccount, setIsCreatingAccount] = useState(false); // Track account creation state
+
+    useEffect(() => {
+        // Clear any potential success messages after a timeout
+        if (successMessage) {
+            const timer = setTimeout(() => {
+                setSuccessMessage('');
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [successMessage]);
 
     const handleLogin = async (e) => {
         if (e) {
@@ -36,23 +46,31 @@ export default function Login() {
             );
 
             // 2. Update AuthContext
-            await loginWithEmailAndPassword(email, password);
+            const loginSuccess = await loginWithEmailAndPassword(email, password);
 
-            const role = response.data.role;
+            if (loginSuccess) {
+                // After successful login via AuthContext, store the userId in localStorage
+                localStorage.setItem('userId', user?.userId); // Assuming 'user' in AuthContext has the userId
+                console.log("User logged in. userId stored in localStorage:", user?.userId);
 
-            // 3. Role-Based Navigation
-            if (role === 'admin') {
-                router.push('/admin-dashboard');
-            } else if (role === 'teacher') {
-                router.push('/teacher-dashboard');
-            } else if (role === 'student') {
-                router.push('/student-dashboard');
-            } else if (role === 'parent') {
-                router.push('/parent-dashboard');
-            } else if (role === 'seller') {
-                router.push('/seller-dashboard');
+                const role = response.data.role;
+
+                // 3. Role-Based Navigation
+                if (role === 'admin') {
+                    router.push('/admin-dashboard');
+                } else if (role === 'teacher') {
+                    router.push('/teacher-dashboard');
+                } else if (role === 'student') {
+                    router.push('/student-dashboard');
+                } else if (role === 'parent') {
+                    router.push('/parent-dashboard');
+                } else if (role === 'seller') {
+                    router.push('/seller-dashboard');
+                } else {
+                    router.push('/dashboard');
+                }
             } else {
-                router.push('/dashboard');
+                setError('Login failed.'); // Handle potential failure from AuthContext
             }
         } catch (err) {
             if (err.response && err.response.status === 403) {
@@ -95,6 +113,7 @@ export default function Login() {
             }
         }
     };
+
     return (
         <div style={{
             display: 'flex',
@@ -171,7 +190,6 @@ export default function Login() {
                     </form>
                 </div>
             ) : (
-                // ... (rest of your login form)
                 <div>
                     <h2 style={{ textAlign: 'center' }}>Login</h2>
                     <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', width: '300px' }}>

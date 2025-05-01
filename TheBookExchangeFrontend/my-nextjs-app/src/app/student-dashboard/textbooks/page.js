@@ -39,6 +39,7 @@ export default function BrowseTextbooks() {
     const [sellerRating, setSellerRating] = useState(5);
     const [rateSellerSuccessMessage, setRateSellerSuccessMessage] = useState(null);
     const [rateSellerError, setRateSellerError] = useState(null);
+    const [addingToWishlist, setAddingToWishlist] = useState({}); // Track loading state for each book's wishlist button
 
     const refetchBooks = async () => {
         setLoading(true);
@@ -141,6 +142,7 @@ export default function BrowseTextbooks() {
         }
     };
 
+
     const handleBackToDashboard = () => {
         router.push('/student-dashboard');
     };
@@ -217,10 +219,10 @@ export default function BrowseTextbooks() {
                 setRateSellerSuccessMessage('Seller rated successfully!');
                 setRateSellerModalOpen(false);
                 setSellerRating(5);
-                // Instead of a generic refetchBooks, consider a more targeted update
-                if (onRatingSubmitted) {
-                    onRatingSubmitted(); // This prop likely refreshes the owned books data
-                }
+                // Consider a more targeted update if needed
+                // if (onRatingSubmitted) {
+                //     onRatingSubmitted();
+                // }
             } else {
                 setRateSellerError(response.data.message || 'Failed to rate seller.');
             }
@@ -229,6 +231,28 @@ export default function BrowseTextbooks() {
             setRateSellerError('An error occurred while rating the seller.');
         }
     };
+
+    const handleAddToWishlist = async (bookId) => {
+        if (!currentUser?.uid) {
+            toast.error('Please log in to add to your wishlist.');
+            return;
+        }
+
+        setAddingToWishlist(prevState => ({ ...prevState, [bookId]: true }));
+        try {
+            const response = await axios.post(`http://localhost:8080/wishlist/addBook/${currentUser.uid}/${bookId}`);            if (response.data.success) {
+                toast.success('Book added to your wishlist!');
+            } else {
+                toast.error(response.data.message || 'Failed to add book to wishlist.');
+            }
+        } catch (error) {
+            console.error('Error adding book to wishlist:', error);
+            toast.error('Error adding book to wishlist.');
+        } finally {
+            setAddingToWishlist(prevState => ({ ...prevState, [bookId]: false }));
+        }
+    };
+
 
     if (loading) return <div className="p-4 flex justify-center items-center"><Spinner /></div>;
     if (error) return <div className="p-4 text-red-600">Error loading textbooks: {error}</div>;
@@ -306,18 +330,27 @@ export default function BrowseTextbooks() {
                                             Rate Seller
                                         </Button>
                                     )}
-                                    {book.sellerRatingCount > 0 ? `(Rating: ${(book.sellerRating ? book.sellerRating.toFixed(2) : 'N/A')} - ${book.sellerRatingCount} ratings)` : '(No seller ratings)'}
+                                    {book.sellerRatingCount > 0 ? `(Rating: ${(book.sellerRating)?.toFixed(2) || 'N/A'} - ${book.sellerRatingCount} ratings)` : '(No seller ratings)'}
                                 </td>
-                                <td className="p-2">
+                                <td className="p-2 flex space-x-2">
                                     <Button
                                         onClick={(event) => handleBuy(book.bookId, book.price, event)}
                                         disabled={purchaseLoading || !currentUser?.email}
                                     >
                                         {purchaseLoading ? <Spinner size="sm" /> : "Buy"}
                                     </Button>
-                                    <Button onClick={() => fetchFeedback(book.bookId)} variant="outline" className="mt-2 ml-2">
+                                    <Button onClick={() => fetchFeedback(book.bookId)} variant="outline">
                                         View Feedback
                                     </Button>
+                                    {currentUser?.uid && (
+                                        <Button
+                                            onClick={() => handleAddToWishlist(book.bookId)}
+                                            disabled={addingToWishlist[book.bookId]}
+                                            variant="secondary"
+                                        >
+                                            {addingToWishlist[book.bookId] ? <Spinner size="sm" /> : "Wishlist"}
+                                        </Button>
+                                    )}
                                 </td>
                             </tr>
                         ))}

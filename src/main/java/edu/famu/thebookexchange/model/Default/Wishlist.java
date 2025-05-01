@@ -1,40 +1,45 @@
 package edu.famu.thebookexchange.model.Default;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.cloud.firestore.DocumentReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.famu.thebookexchange.model.Abstracts.AWishlist;
-import edu.famu.thebookexchange.model.Rest.DocumentReferenceDeserializer;
-import edu.famu.thebookexchange.model.Rest.DocumentReferenceSerializer;
+import lombok.NoArgsConstructor;
 
+import java.util.List;
+import java.util.ArrayList;
+
+@NoArgsConstructor // Be cautious with this if you don't explicitly call super
 public class Wishlist extends AWishlist {
 
-    @JsonSerialize(using = DocumentReferenceSerializer.class)
-    @JsonDeserialize(using = DocumentReferenceDeserializer.class)
-    private DocumentReference userId;
-    public Wishlist(String bookRequests, DocumentReference userId) {
-        super(bookRequests);
+    @JsonProperty("userId")
+    private String userId;
+
+    public Wishlist(List<String> bookRequests, String userId) {
+        super(bookRequests); // Correctly calling the AWishlist constructor
         this.userId = userId;
     }
 
+    // If you have a no-argument constructor, you MUST call super with a List<String>
+    public Wishlist() {
+        super(new ArrayList<>()); // Calling AWishlist constructor with an empty list
+    }
+
     // Manual Getters
-    public DocumentReference getUserId() {
+    public String getUserId() {
         return userId;
     }
 
     // Manual Setters
-    public void setUserId(DocumentReference userId) {
+    public void setUserId(String userId) {
         this.userId = userId;
     }
 
     // Manual Getters from AWishlist
-    public String getBookRequests() {
+    public List<String> getBookRequests() {
         return super.getBookRequests();
     }
 
     // Manual Setters from AWishlist
-    public void setBookRequests(String bookRequests) {
+    public void setBookRequests(List<String> bookRequests) {
         super.setBookRequests(bookRequests);
     }
 }
-

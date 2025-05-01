@@ -40,20 +40,20 @@ export const AuthContextProvider = ({ children }) => {
     const loginWithEmailAndPassword = async (email, password) => {
         setLoading(true);
         setAuthError(null);
-        console.log('AuthContext: loginWithEmailAndPassword - email:', email); // Log email
-        console.log('AuthContext: loginWithEmailAndPassword - loading set to true'); // Log loading state
+        console.log('AuthContext: loginWithEmailAndPassword - email:', email);
+        console.log('AuthContext: loginWithEmailAndPassword - loading set to true');
 
         try {
             const response = await axios.post('http://localhost:8080/auth/verify', null, {
                 params: { email, password },
             });
 
-            console.log('AuthContext: loginWithEmailAndPassword - response.data:', response.data); // Log the entire response data
+            console.log('AuthContext: loginWithEmailAndPassword - response.data:', response.data);
 
             const user = {
                 email: response.data.email,
                 role: response.data.role,
-                uid: response.data.id || response.data._id || response.data.uid || response.data.userId, // Assuming 'uid' is the property name for ID
+                uid: response.data.id || response.data._id || response.data.uid || response.data.userId,
             };
 
             setCurrentUser(user);
@@ -61,18 +61,18 @@ export const AuthContextProvider = ({ children }) => {
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('userData', JSON.stringify(response.data));
             setLoading(false);
-            console.log('AuthContext: loginWithEmailAndPassword - currentUser set:', user); // Log currentUser
-            console.log('AuthContext: loginWithEmailAndPassword - userData set:', response.data); // Log userData
-            console.log('AuthContext: loginWithEmailAndPassword - loading set to false'); // Log loading state
+            console.log('AuthContext: loginWithEmailAndPassword - currentUser set:', user);
+            console.log('AuthContext: loginWithEmailAndPassword - userData set:', response.data);
+            console.log('AuthContext: loginWithEmailAndPassword - loading set to false');
+            return true; // Explicitly return true on success
         } catch (error) {
             console.error('AuthContext: login error:', error);
             setAuthError(error.message || 'Login failed. Please try again.');
             setLoading(false);
-            console.log('AuthContext: loginWithEmailAndPassword - loading set to false due to error'); // Log loading state
+            console.log('AuthContext: loginWithEmailAndPassword - loading set to false due to error');
             throw error;
         }
     };
-
     const logout = () => {
         console.log('AuthContext: logout - initiated'); // Log logout initiation
         setCurrentUser(null);
