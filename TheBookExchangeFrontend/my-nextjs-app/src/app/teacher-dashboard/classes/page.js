@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useRouter } from 'next/navigation';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import Label from "@/components/ui/label"; // Import the default export directly
 
 export default function ManageCourses() {
     const [courses, setCourses] = useState([]);
@@ -34,6 +36,20 @@ export default function ManageCourses() {
     const [feedbackLoading, setFeedbackLoading] = useState(false);
     const [feedbackError, setFeedbackError] = useState(null);
     const [bookFeedback, setBookFeedback] = useState({});
+    const [editBookDialogOpen, setEditBookDialogOpen] = useState(false);
+    const [editingBook, setEditingBook] = useState(null);
+    const [editBookLoading, setEditBookLoading] = useState(false);
+    const [editBookError, setEditBookError] = useState(null);
+    const [editedBookData, setEditedBookData] = useState({
+        title: '',
+        author: '',
+        edition: '',
+        ISBN: '',
+        condition: '',
+        description: '',
+        isDigital: false,
+        digitalCopyPath: '',
+    });
 
     useEffect(() => {
         const fetchCourses = async () => {
@@ -132,7 +148,7 @@ export default function ManageCourses() {
                     },
                 });
 
-                fetchCourseBooks(courseName);
+                await fetchCourseBooks(courseName);
                 setNewBook({
                     title: '',
                     author: '',
@@ -144,6 +160,8 @@ export default function ManageCourses() {
                     digitalCopyPath: '',
                 });
                 setShowAddBookForm(false);
+                setSuccessMessage("Book added successfully!");
+                setTimeout(() => setSuccessMessage(null), 3000);
             } else {
                 setAddBookError(response.data.message);
             }
@@ -155,6 +173,7 @@ export default function ManageCourses() {
     };
 
     const handleFeedback = async (bookId, feedbackText) => {
+        if (!bookId) return;
         setFeedbackLoading(true);
         setFeedbackError(null);
         try {
@@ -166,7 +185,7 @@ export default function ManageCourses() {
                 setSuccessMessage("Feedback added successfully!");
                 setTimeout(() => setSuccessMessage(null), 3000);
                 setFeedback({ bookId: null, feedbackText: '' });
-                fetchFeedback(bookId);
+                await fetchFeedback(bookId);
             } else {
                 setFeedbackError("Failed to add feedback");
             }
@@ -181,7 +200,7 @@ export default function ManageCourses() {
         try {
             const response = await axios.delete(`http://localhost:8080/Forums/feedback/${feedbackId}`);
             if (response.data && response.data.success) {
-                fetchFeedback(bookId);
+                await fetchFeedback(bookId);
             } else {
                 console.error('Failed to delete feedback');
             }
@@ -198,6 +217,56 @@ export default function ManageCourses() {
             }
         } catch (err) {
             console.error("Failed to fetch feedback:", err);
+        }
+    };
+
+    const handleOpenEditBookDialog = (book) => {
+        setEditingBook(book);
+        setEditedBookData({
+            title: book.title,
+            author: book.author,
+            edition: book.edition,
+            ISBN: book.ISBN,
+            condition: book.condition,
+            description: book.description,
+            isDigital: book.isDigital,
+            digitalCopyPath: book.digitalCopyPath || '',
+        });
+        setEditBookDialogOpen(true);
+    };
+
+    const handleCloseEditBookDialog = () => {
+        setEditBookDialogOpen(false);
+        setEditingBook(null);
+        setEditBookError(null); // Clear any previous edit errors
+    };
+
+    const handleEditBookInputChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setEditedBookData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value,
+        }));
+    };
+
+    const handleEditBookSubmit = async () => {
+        if (!editingBook?.bookId) return;
+        setEditBookLoading(true);
+        setEditBookError(null);
+        try {
+            const response = await axios.put(`http://localhost:8080/Books/${editingBook.bookId}`, editedBookData);
+            if (response.data && response.data.success) {
+                setSuccessMessage("Book updated successfully!");
+                setTimeout(() => setSuccessMessage(null), 3000);
+                await fetchCourseBooks(courses.find(c => c.courseId === editingBook.courseId?.id).courseName);
+                handleCloseEditBookDialog();
+            } else {
+                setEditBookError(response.data?.message || "Failed to update book");
+            }
+        } catch (err) {
+            setEditBookError(err.message);
+        } finally {
+            setEditBookLoading(false);
         }
     };
 
@@ -246,63 +315,70 @@ export default function ManageCourses() {
                         for {courses.find(course => course.courseId === selectedCourseBooks[0]?.courseId?.id)?.courseName}</h3>
                     {successMessage && <p className="text-green-600">{successMessage}</p>}
                     {selectedCourseBooks.map(book => (
-                        <div key={book.bookId} className="border-b border-gray-200 p-3">
-                            <p><strong>Title:</strong> {book.title}</p>
-                            <p><strong>Author:</strong> {book.author}</p>
-                            <p><strong>Edition:</strong> {book.edition}</p>
-                            <p><strong>ISBN:</strong> {book.ISBN}</p>
-                            <p><strong>Condition:</strong> {book.condition}</p>
-                            <p><strong>Description:</strong> {book.description}</p>
-                            <p><strong>Is Digital:</strong> {book.isDigital ? 'Yes' : 'No'}</p>
-                            {book.isDigital && <p><strong>Digital Copy Path:</strong> {book.digitalCopyPath}</p>}
-                            {book.textbooks && book.textbooks.length > 0 && (
-                                <div>
-                                    <p><strong>Textbooks:</strong></p>
-                                    <ul>
-                                        {book.textbooks.map((textbook) => (
-                                            <li key={textbook}>{textbook}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                            <Button onClick={() => handleRemoveBook(book.title)} variant="outline" size="icon">
-                                X
-                            </Button>
-                            <Button onClick={() => setFeedback({ bookId: book.bookId, feedbackText: '' })} variant="outline" className="mt-2">
-                                Add Feedback
-                            </Button>
-                            <Button onClick={() => fetchFeedback(book.bookId)} variant="outline" className="mt-2">
-                                View Feedback
-                            </Button>
-                            {bookFeedback[book.bookId] && (
-                                <div className="mt-2">
-                                    <p><strong>Feedback:</strong></p>
-                                    <ul>
-                                        {bookFeedback[book.bookId].map(fb => (
-                                            <li key={fb.feedbackId}>
-                                                {fb.feedback}
-                                                <Button onClick={() => handleRemoveFeedback(fb.feedbackId, book.bookId)} variant="outline" size="icon" className="ml-2">
-                                                    X
-                                                </Button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-                            {feedback.bookId === book.bookId && (
-                                <div className="mt-2">
-                                    <Input
-                                        placeholder="Feedback"
-                                        value={feedback.feedbackText}
-                                        onChange={(e) => setFeedback({ ...feedback, feedbackText: e.target.value })}
-                                        className="mb-2"
-                                    />
-                                    <Button onClick={() => handleFeedback(book.bookId, feedback.feedbackText)} disabled={feedbackLoading}>
-                                        {feedbackLoading ? <Spinner /> : "Submit Feedback"}
-                                    </Button>
-                                    {feedbackError && <p className="text-red-500 mt-2">{feedbackError}</p>}
-                                </div>
-                            )}
+                        <div key={book.bookId} className="border-b border-gray-200 p-3 flex items-center justify-between">
+                            <div>
+                                <p><strong>Title:</strong> {book.title}</p>
+                                <p><strong>Author:</strong> {book.author}</p>
+                                <p><strong>Edition:</strong> {book.edition}</p>
+                                <p><strong>ISBN:</strong> {book.ISBN}</p>
+                                <p><strong>Condition:</strong> {book.condition}</p>
+                                <p><strong>Description:</strong> {book.description}</p>
+                                <p><strong>Is Digital:</strong> {book.isDigital ? 'Yes' : 'No'}</p>
+                                {book.isDigital && <p><strong>Digital Copy Path:</strong> {book.digitalCopyPath}</p>}
+                                {book.textbooks && book.textbooks.length > 0 && (
+                                    <div>
+                                        <p><strong>Textbooks:</strong></p>
+                                        <ul>
+                                            {book.textbooks.map((textbook) => (
+                                                <li key={textbook}>{textbook}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                <Button onClick={() => setFeedback({ bookId: book.bookId, feedbackText: '' })} variant="outline" className="mt-2">
+                                    Add Feedback
+                                </Button>
+                                <Button onClick={() => fetchFeedback(book.bookId)} variant="outline" className="mt-2">
+                                    View Feedback
+                                </Button>
+                                {bookFeedback[book.bookId] && (
+                                    <div className="mt-2">
+                                        <p><strong>Feedback:</strong></p>
+                                        <ul>
+                                            {bookFeedback[book.bookId].map(fb => (
+                                                <li key={fb.feedbackId}>
+                                                    {fb.feedback}
+                                                    <Button onClick={() => handleRemoveFeedback(fb.feedbackId, book.bookId)} variant="outline" size="icon" className="ml-2">
+                                                        X
+                                                    </Button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                {feedback.bookId === book.bookId && (
+                                    <div className="mt-2">
+                                        <Input
+                                            placeholder="Feedback"
+                                            value={feedback.feedbackText}
+                                            onChange={(e) => setFeedback({ ...feedback, feedbackText: e.target.value })}
+                                            className="mb-2"
+                                        />
+                                        <Button onClick={() => handleFeedback(book.bookId, feedback.feedbackText)} disabled={feedbackLoading}>
+                                            {feedbackLoading ? <Spinner /> : "Submit Feedback"}
+                                        </Button>
+                                        {feedbackError && <p className="text-red-500 mt-2">{feedbackError}</p>}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="space-x-2">
+                                <Button onClick={() => handleOpenEditBookDialog(book)} variant="outline" size="icon">
+                                    Edit
+                                </Button>
+                                <Button onClick={() => handleRemoveBook(book.title)} variant="outline" size="icon">
+                                    X
+                                </Button>
+                            </div>
                         </div>
                     ))}
                     <Button onClick={() => setShowAddBookForm(true)} variant="outline" className="mt-4">
@@ -352,6 +428,91 @@ export default function ManageCourses() {
                     </Button>
                 </div>
             )}
+
+            <Dialog open={editBookDialogOpen} onOpenChange={setEditBookDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Edit Book</DialogTitle>
+                        <DialogDescription>
+                            Edit the details of the selected book.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {editBookError && <p className="text-red-500 mb-4">{editBookError}</p>}
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="title" className="text-right">
+                                Title
+                            </Label>
+                            <Input id="title" name="title" value={editedBookData.title} onChange={handleEditBookInputChange} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="author" className="text-right">
+                                Author
+                            </Label>
+                            <Input id="author" name="author" value={editedBookData.author} onChange={handleEditBookInputChange} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edition" className="text-right">
+                                Edition
+                            </Label>
+                            <Input id="edition" name="edition" value={editedBookData.edition} onChange={handleEditBookInputChange} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="isbn" className="text-right">
+                                ISBN
+                            </Label>
+                            <Input id="isbn" name="ISBN" value={editedBookData.ISBN} onChange={handleEditBookInputChange} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="condition" className="text-right">
+                                Condition
+                            </Label>
+                            <Input id="condition" name="condition" value={editedBookData.condition} onChange={handleEditBookInputChange} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="description" className="text-right">
+                                Description
+                            </Label>
+                            <Input id="description" name="description" value={editedBookData.description} onChange={handleEditBookInputChange} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="isDigital" className="text-right">
+                                Is Digital
+                            </Label>
+                            <input
+                                type="checkbox"
+                                id="isDigital"
+                                name="isDigital"
+                                checked={editedBookData.isDigital}
+                                onChange={handleEditBookInputChange}
+                                className="col-span-3"
+                            />
+                        </div>
+                        {editedBookData.isDigital && (
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="digitalCopyPath" className="text-right">
+                                    Digital Path
+                                </Label>
+                                <Input
+                                    id="digitalCopyPath"
+                                    name="digitalCopyPath"
+                                    value={editedBookData.digitalCopyPath}
+                                    onChange={handleEditBookInputChange}
+                                    className="col-span-3"
+                                />
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="secondary" onClick={handleCloseEditBookDialog}>
+                            Cancel
+                        </Button>
+                        <Button type="button" onClick={handleEditBookSubmit} disabled={editBookLoading}>
+                            {editBookLoading ? <Spinner /> : "Save Changes"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

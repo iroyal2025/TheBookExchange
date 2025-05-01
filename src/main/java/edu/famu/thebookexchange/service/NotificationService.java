@@ -22,7 +22,7 @@ public class NotificationService {
     private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
     private Firestore firestore;
 
-    private static final String NOTIFICATIONS_COLLECTION = "notifications";
+    public static final String NOTIFICATIONS_COLLECTION = "notifications";
     private static final int FIRESTORE_TIMEOUT = 5; // seconds
 
     public NotificationService() {

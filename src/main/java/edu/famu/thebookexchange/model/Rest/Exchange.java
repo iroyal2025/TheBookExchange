@@ -1,28 +1,48 @@
 package edu.famu.thebookexchange.model.Rest;
 
-import java.time.LocalDateTime;
+import com.google.cloud.Timestamp;
+import com.google.cloud.firestore.annotation.DocumentId;
 
 public class Exchange {
+    @DocumentId
     private String exchangeId;
     private String offeredBookId;
     private String requestedBookId;
     private String requesterId;
     private String ownerId;
-    private String status; // "pending", "accepted", "rejected", "completed", "cancelled"
-    private LocalDateTime requestedAt;
-    private LocalDateTime respondedAt;
+    private String recipientId;
+    private String status;
+    private Timestamp requestedAt;
+    private Timestamp respondedAt;
+    private Timestamp createdAt;
+    private String acceptedBy;
 
     // Default constructor (for Firestore)
     public Exchange() {
+        this.createdAt = Timestamp.now(); // Initialize createdAt in default constructor as well
     }
 
-    public Exchange(String offeredBookId, String requestedBookId, String requesterId, String ownerId, String status) {
+    // Constructor for targeted exchange
+    public Exchange(String offeredBookId, String requestedBookId, String requesterId, String ownerId, String status, String acceptedBy) {
         this.offeredBookId = offeredBookId;
         this.requestedBookId = requestedBookId;
         this.requesterId = requesterId;
         this.ownerId = ownerId;
         this.status = status;
-        this.requestedAt = LocalDateTime.now();
+        this.acceptedBy = acceptedBy;
+        this.requestedAt = Timestamp.now();
+        this.createdAt = Timestamp.now();
+    }
+
+    // Constructor for direct exchange
+    public Exchange(String offeredBookId, String requesterId, String recipientId, String status, String acceptedBy) {
+        this.offeredBookId = offeredBookId;
+        this.requesterId = requesterId;
+        this.recipientId = recipientId;
+        this.status = status;
+        this.acceptedBy = acceptedBy;
+        this.requestedAt = Timestamp.now();
+        this.createdAt = Timestamp.now();
     }
 
     public String getExchangeId() {
@@ -65,6 +85,14 @@ public class Exchange {
         this.ownerId = ownerId;
     }
 
+    public String getRecipientId() {
+        return recipientId;
+    }
+
+    public void setRecipientId(String recipientId) {
+        this.recipientId = recipientId;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -73,19 +101,35 @@ public class Exchange {
         this.status = status;
     }
 
-    public LocalDateTime getRequestedAt() {
+    public Timestamp getRequestedAt() {
         return requestedAt;
     }
 
-    public void setRequestedAt(LocalDateTime requestedAt) {
+    public void setRequestedAt(Timestamp requestedAt) {
         this.requestedAt = requestedAt;
     }
 
-    public LocalDateTime getRespondedAt() {
+    public Timestamp getRespondedAt() {
         return respondedAt;
     }
 
-    public void setRespondedAt(LocalDateTime respondedAt) {
+    public void setRespondedAt(Timestamp respondedAt) {
         this.respondedAt = respondedAt;
+    }
+
+    public Timestamp getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Timestamp createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getAcceptedBy() {
+        return acceptedBy;
+    }
+
+    public void setAcceptedBy(String acceptedBy) {
+        this.acceptedBy = acceptedBy;
     }
 }

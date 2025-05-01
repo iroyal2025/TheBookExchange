@@ -6,19 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useRouter } from 'next/navigation';
-
-// Assuming you have a layout component like MainLayout
 import MainLayout from '@/components/MainLayout';
 
 export default function ViewStudents() {
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [studentTransactions, setStudentTransactions] = useState({});
+    const [transactionLoading, setTransactionLoading] = useState({});
     const { currentUser } = useContext(AuthContext);
-    const [editBalance, setEditBalance] = useState({
-        studentId: null,
-        balance: '',
-    });
+    const [editBalance, setEditBalance] = useState({ studentId: null, balance: '' });
     const [editBalanceLoading, setEditBalanceLoading] = useState(false);
     const [editBalanceError, setEditBalanceError] = useState(null);
     const [removeLoading, setRemoveLoading] = useState(null);
@@ -52,6 +49,20 @@ export default function ViewStudents() {
         fetchStudents();
     }, [currentUser]);
 
+    const fetchStudentTransactions = async (studentEmail) => {
+        setTransactionLoading(prev => ({ ...prev, [studentEmail]: true }));
+        try {
+            const response = await axios.get(`http://localhost:8080/Transactions/student/email/${studentEmail}`);
+            if (response.data) {
+                setStudentTransactions(prev => ({ ...prev, [studentEmail]: response.data }));
+            }
+        } catch (err) {
+            setError('Error fetching transactions: ' + err.message);
+        } finally {
+            setTransactionLoading(prev => ({ ...prev, [studentEmail]: false }));
+        }
+    };
+
     const handleEditBalance = (studentId) => {
         setEditBalance({ studentId, balance: '' });
     };
@@ -61,7 +72,6 @@ export default function ViewStudents() {
         setEditBalanceError(null);
         try {
             const response = await axios.put(`http://localhost:8080/Users/balance/email/${editBalance.studentId}?balance=${editBalance.balance}`);
-
             if (response.data.success) {
                 setStudents(students.map(student =>
                     student.email === editBalance.studentId ? { ...student, balance: editBalance.balance } : student
@@ -110,7 +120,6 @@ export default function ViewStudents() {
             }
 
             const response = await axios.post(`http://localhost:8080/Users/students/email/${currentUser.email}/student/${addStudentEmail}`);
-
             if (response.data.success) {
                 setStudents([...students, { email: addStudentEmail, balance: 0 }]);
                 setAddStudentEmail('');
@@ -165,8 +174,13 @@ export default function ViewStudents() {
 
                 <div className="mb-4">
                     <h3 className="text-lg font-semibold mb-2">Add Student</h3>
-                    <Input type="email" placeholder="Student Email" value={addStudentEmail}
-                           onChange={(e) => setAddStudentEmail(e.target.value)} className="mb-2" />
+                    <Input
+                        type="email"
+                        placeholder="Student Email"
+                        value={addStudentEmail}
+                        onChange={(e) => setAddStudentEmail(e.target.value)}
+                        className="mb-2"
+                    />
                     <Button onClick={handleAddStudent} disabled={addStudentLoading}>
                         {addStudentLoading ? <Spinner size="sm" /> : "Add Student"}
                     </Button>
@@ -187,46 +201,64 @@ export default function ViewStudents() {
                             </thead>
                             <tbody>
                             {students.map(student => (
-                                <tr key={student.email} className="border-b border-gray-200">
-                                    <td className="p-2">{student.email}</td>
-                                    <td className="p-2">${student.balance}</td>
-                                    <td className="p-2">
-                                        <Button onClick={() => handleEditBalance(student.email)} className="mr-2">Edit Balance</Button>
-                                        <Button onClick={() => handleRemoveStudent(student.email)} disabled={removeLoading === student.email}>
-                                            {removeLoading === student.email ? <Spinner size="sm" /> : "Remove"}
-                                        </Button>
-                                        <Button onClick={() => handleBuyBookForStudent(student.email)} className="ml-2">Buy Book</Button>
-                                    </td>
-                                    <td className="p-2">
-                                        <Button onClick={() => fetchStudentBooks(student.email)}>View Books</Button>
-                                        {studentBooks[student.email] && (
-                                            <ul className="mt-2">
-                                                {studentBooks[student.email].map(book => (
-                                                    <li key={book.bookId}>{book.title}</li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </td>
-                                </tr>
+                                <React.Fragment key={student.email}>
+                                    <tr className="border-b border-gray-200">
+                                        <td className="p-2">{student.email}</td>
+                                        <td className="p-2">${student.balance}</td>
+                                        <td className="p-2 space-x-2">
+                                            <Button onClick={() => handleEditBalance(student.email)}>Edit Balance</Button>
+                                            <Button onClick={() => handleRemoveStudent(student.email)} disabled={removeLoading === student.email}>
+                                                {removeLoading === student.email ? <Spinner size="sm" /> : "Remove"}
+                                            </Button>
+                                            <Button onClick={() => handleBuyBookForStudent(student.email)}>Buy Book</Button>
+                                            <Button onClick={() => fetchStudentTransactions(student.email)}>View Transactions</Button>
+                                        </td>
+                                        <td className="p-2">
+                                            <Button onClick={() => fetchStudentBooks(student.email)}>View Books</Button>
+                                            {studentBooks[student.email] && (
+                                                <ul className="mt-2">
+                                                    {studentBooks[student.email].map(book => (
+                                                        <li key={book.bookId}>{book.title}</li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </td>
+                                    </tr>
+
+                                    {studentTransactions[student.email] && (
+                                        <tr className="bg-gray-50">
+                                            <td colSpan={4} className="p-4">
+                                                <h4 className="font-semibold mb-2">Transactions</h4>
+                                                {transactionLoading[student.email] ? (
+                                                    <Spinner />
+                                                ) : (
+                                                    <table className="w-full text-sm border">
+                                                        <thead>
+                                                        <tr className="bg-gray-200">
+                                                            <th className="p-2 text-left">Book ID</th>
+                                                            <th className="p-2 text-left">Order Status</th>
+                                                        </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                        {studentTransactions[student.email].map((tx, i) => (
+                                                            <tr key={i}>
+                                                                <td className="p-2">{tx.bookId}</td>
+                                                                <td className="p-2">{tx["order status"]}</td>
+                                                            </tr>
+                                                        ))}
+                                                        </tbody>
+                                                    </table>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             ))}
                             </tbody>
                         </table>
                     </div>
                 ) : (
                     <p>No students found.</p>
-                )}
-
-                {editBalance.studentId && (
-                    <div className="mt-4">
-                        <h3 className="text-lg font-semibold mb-2">Edit Balance for {editBalance.studentId}</h3>
-                        <Input type="number" placeholder="New Balance" value={editBalance.balance}
-                               onChange={(e) => setEditBalance({ ...editBalance, balance: e.target.value })}
-                               className="mb-2" />
-                        <Button onClick={handleSaveBalance} disabled={editBalanceLoading}>
-                            {editBalanceLoading ? <Spinner size="sm" /> : "Save"}
-                        </Button>
-                        {editBalanceError && <p className="text-red-500 mt-1">{editBalanceError}</p>}
-                    </div>
                 )}
             </div>
         </MainLayout>

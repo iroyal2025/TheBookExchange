@@ -13,7 +13,7 @@ import { toast } from 'react-hot-toast';
 
 export default function MyBooks({ onRatingSubmitted }) {
     const [ownedBooks, setOwnedBooks] = useState([]);
-    const { currentUser, loading } = useContext(AuthContext);
+    const { currentUser, loading: authLoading } = useContext(AuthContext); // Renamed loading for clarity
     const [pageLoading, setPageLoading] = useState(true);
     const [renderTrigger, setRenderTrigger] = useState(0);
     const router = useRouter();
@@ -32,17 +32,15 @@ export default function MyBooks({ onRatingSubmitted }) {
     const [rateSellerSuccessMessage, setRateSellerSuccessMessage] = useState(null);
     const [rateSellerError, setRateSellerError] = useState(null);
     const [directExchangeModalOpen, setDirectExchangeModalOpen] = useState(false);
-    const [exchangeTargetUsers, setExchangeTargetUsers] = useState([]);
-    const [selectedExchangeTargetUser, setSelectedExchangeTargetUser] = useState(null);
     const [offeredBookForDirectExchange, setOfferedBookForDirectExchange] = useState(null);
     const [directExchangeSuccessMessage, setDirectExchangeSuccessMessage] = useState(null);
     const [directExchangeErrorMessage, setDirectExchangeErrorMessage] = useState(null);
 
     useEffect(() => {
-        if (!loading) {
+        if (!authLoading) { // Use authLoading from AuthContext
             setPageLoading(false);
         }
-    }, [loading]);
+    }, [authLoading]);
 
     useEffect(() => {
         const fetchOwnedBooks = async () => {
@@ -53,14 +51,14 @@ export default function MyBooks({ onRatingSubmitted }) {
                     if (response.data.success) {
                         setOwnedBooks(response.data.data);
                     } else {
-                        console.log('User does not own any books.');
+                        console.log('MyBooks: User does not own any books.');
                         setOwnedBooks([]);
                     }
                 } catch (error) {
-                    console.error('Error fetching owned books:', error);
+                    console.error('MyBooks: Error fetching owned books:', error);
                 }
             } else {
-                console.log("CurrentUser or email is missing");
+                console.log("MyBooks: CurrentUser or email is missing");
             }
         };
 
@@ -95,7 +93,7 @@ export default function MyBooks({ onRatingSubmitted }) {
                 setReportError('Failed to submit report.');
             }
         } catch (error) {
-            console.error('Error submitting report:', error);
+            console.error('MyBooks: Error submitting report:', error);
             setReportError('An error occurred while submitting the report.');
         }
     };
@@ -115,7 +113,7 @@ export default function MyBooks({ onRatingSubmitted }) {
                 onRatingSubmitted();
             }
         } catch (error) {
-            console.error('Error rating book:', error);
+            console.error('MyBooks: Error rating book:', error);
         }
     };
 
@@ -139,31 +137,25 @@ export default function MyBooks({ onRatingSubmitted }) {
                 setRateSellerError(response.data.message || 'Failed to rate seller.');
             }
         } catch (error) {
-            console.error('Error rating seller:', error);
+            console.error('MyBooks: Error rating seller:', error);
             setRateSellerError('An error occurred while rating the seller.');
         }
     };
 
     const handleInitiateExchange = (bookId) => {
+        console.log('MyBooks: handleInitiateExchange - currentUser:', currentUser);
         setOfferedBookForDirectExchange(bookId);
-        axios.get(`http://localhost:8080/Books/exchangeable?userId=${currentUser.uid}`)
-            .then(response => {
-                if (response.data.success) {
-                    setExchangeTargetUsers(response.data.data);
-                    setDirectExchangeModalOpen(true);
-                } else {
-                    toast.error('Failed to fetch exchangeable books.');
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching exchangeable books:', error);
-                toast.error('Error fetching exchangeable books.');
-            });
+        setDirectExchangeModalOpen(true); // Just open the modal to confirm the general offer
     };
 
     const handleSendDirectExchangeRequest = async () => {
-        if (!selectedExchangeTargetUser || !offeredBookForDirectExchange) {
-            toast.error('Please select a book to exchange for.');
+        if (!offeredBookForDirectExchange) {
+            toast.error('Please select a book you are offering for exchange.');
+            return;
+        }
+
+        if (!currentUser?.uid) {
+            toast.error('User authentication details are not yet available. Please try again.');
             return;
         }
 
@@ -172,41 +164,28 @@ export default function MyBooks({ onRatingSubmitted }) {
 
         try {
             const requesterId = currentUser.uid;
-            const selectedBook = exchangeTargetUsers.find(book => book.bookId === selectedExchangeTargetUser);
-            // Assuming book.userId in exchangeTargetUsers is the email of the owner
-            const ownerId = selectedBook?.userId;
 
-            console.log("Selected Book:", selectedBook);
-            console.log("Owner ID:", ownerId);
-
-            if (!ownerId) {
-                toast.error('Could not determine the owner of the selected book.');
-                return;
-            }
-
-            const response = await axios.post('http://localhost:8080/Exchanges/request', {
+            const response = await axios.post('http://localhost:8080/exchanges/direct', { // Changed URL here
                 offeredBookId: offeredBookForDirectExchange,
-                requestedBookId: selectedExchangeTargetUser,
                 requesterId: requesterId,
-                ownerId: ownerId, // Now this should be the email of the offering user
             });
 
             if (response.data.success) {
-                toast.success('Exchange request sent successfully!');
-                setDirectExchangeSuccessMessage('Exchange request sent!');
+                toast.success('Your direct exchange offer has been sent to other students!');
+                setDirectExchangeSuccessMessage('Your direct exchange offer has been sent to other students!');
                 setDirectExchangeModalOpen(false);
                 setOfferedBookForDirectExchange(null);
-                setSelectedExchangeTargetUser(null);
             } else {
-                toast.error(response.data.message || 'Failed to send exchange request.');
-                setDirectExchangeErrorMessage(response.data.message || 'Failed to send exchange request.');
+                toast.error(response.data.message || 'Failed to send direct exchange request.');
+                setDirectExchangeErrorMessage(response.data.message || 'Failed to send direct exchange request.');
             }
         } catch (error) {
-            console.error('Error sending direct exchange request:', error);
-            toast.error('An error occurred while sending the exchange request.');
-            setDirectExchangeErrorMessage('An error occurred while sending the exchange request.');
+            console.error('MyBooks: Error sending direct exchange request:', error);
+            toast.error('An error occurred while sending the direct exchange request.');
+            setDirectExchangeErrorMessage('An error occurred while sending the direct exchange request.');
         }
     };
+
     return (
         <div className="min-h-screen bg-gradient-to-r from-orange-500 to-green-500 flex flex-col items-center justify-center">
             {reportSuccess && (
@@ -385,52 +364,27 @@ export default function MyBooks({ onRatingSubmitted }) {
                     </div>
                 </DialogContent>
             </Dialog>
-            {/* Direct Exchange Modal */}
+            {/* Direct Exchange Modal - UPDATED */}
             <Dialog open={directExchangeModalOpen} onOpenChange={setDirectExchangeModalOpen}>
-                <DialogContent className="sm:max-w-[90vw] max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                        <DialogTitle>Exchange with Another Student</DialogTitle>
+                        <DialogTitle>Offer Book for Direct Exchange</DialogTitle>
                         <DialogDescription>
-                            Select a book offered by another student that you would like to exchange for.
+                            Confirm that you want to offer your book for direct exchange with other students.
                         </DialogDescription>
                     </DialogHeader>
+                    <div className="py-4">
+                        {offeredBookForDirectExchange && (
+                            <p>You are offering the book with ID: {offeredBookForDirectExchange}</p>
+                        )}
+                    </div>
                     {directExchangeErrorMessage && <p className="text-red-500 mt-2">{directExchangeErrorMessage}</p>}
-                    {exchangeTargetUsers.length > 0 ? (
-                        <ul className="space-y-4">
-                            {exchangeTargetUsers.map((book) => (
-                                <li
-                                    key={book.bookId}
-                                    className={`border p-4 rounded-lg shadow-md cursor-pointer ${
-                                        selectedExchangeTargetUser === book.bookId ? 'bg-blue-100 border-blue-500' : ''
-                                    }`}
-                                    onClick={() => setSelectedExchangeTargetUser(book.bookId)}
-                                >
-                                    <strong className="text-blue-600">Title:</strong> {book.title}
-                                    <br />
-                                    <strong className="text-blue-600">Author:</strong> {book.author}
-                                    <br />
-                                    <strong className="text-blue-600">Edition:</strong> {book.edition}
-                                    <br />
-                                    <strong className="text-blue-600">ISBN:</strong> {book.isbn}
-                                    <br />
-                                    <strong className="text-blue-600">Offered By:</strong> {book.userId} {/* Assuming userId is the owner */}
-                                    {/* You can display other relevant book information here */}
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="text-gray-600">No books are currently available for exchange from other students.</p>
-                    )}
-                    <div className="flex justify-end mt-4">
-                        <Button type="button" variant="outline" className="mr-2" onClick={() => setDirectExchangeModalOpen(false)}>
+                    <div className="flex justify-end gap-2">
+                        <Button variant="secondary" onClick={() => setDirectExchangeModalOpen(false)}>
                             Cancel
                         </Button>
-                        <Button
-                            type="button"
-                            onClick={handleSendDirectExchangeRequest}
-                            disabled={!selectedExchangeTargetUser || !offeredBookForDirectExchange}
-                        >
-                            Send Exchange Request
+                        <Button onClick={handleSendDirectExchangeRequest} disabled={!offeredBookForDirectExchange}>
+                            Send Exchange Offer to All Students
                         </Button>
                     </div>
                 </DialogContent>

@@ -1,44 +1,37 @@
 // Rest Class (RestTransactions.java)
 package edu.famu.thebookexchange.model.Rest;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.cloud.firestore.DocumentReference;
 import edu.famu.thebookexchange.model.Abstracts.ATransactions;
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 public class RestTransactions extends ATransactions {
 
-    @JsonSerialize(using = DocumentReferenceSerializer.class)
-    @JsonDeserialize(using = DocumentReferenceDeserializer.class)
-    private DocumentReference bookId;
+    private String bookId;
 
-    @JsonSerialize(using = DocumentReferenceSerializer.class)
-    @JsonDeserialize(using = DocumentReferenceDeserializer.class)
-    private DocumentReference userId;
+    private String userId;
 
-    public RestTransactions(String orderStatus, DocumentReference bookId, DocumentReference userId) {
+    public RestTransactions(String orderStatus, String bookId, String userId) {
         super(orderStatus);
         this.bookId = bookId;
         this.userId = userId;
     }
 
     // Manual Getters
-    public DocumentReference getBookId() {
+    public String getBookId() {
         return bookId;
     }
 
-    public DocumentReference getUserId() {
+    public String getUserId() {
         return userId;
     }
 
     // Manual Setters
-    public void setBookId(DocumentReference bookId) {
+    public void setBookId(String bookId) {
         this.bookId = bookId;
     }
 
-    public void setUserId(DocumentReference userId) {
+    public void setUserId(String userId) {
         this.userId = userId;
     }
 

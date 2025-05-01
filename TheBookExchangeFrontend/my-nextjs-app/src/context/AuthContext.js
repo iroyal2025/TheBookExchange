@@ -9,91 +9,81 @@ export const AuthContext = createContext();
 export const AuthContextProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [userData, setUserData] = useState(null);
-    const [userId, setUserId] = useState(null); // New state for userId
     const [loading, setLoading] = useState(true);
     const [authError, setAuthError] = useState(null);
 
-    // Load user data from localStorage on app start
     useEffect(() => {
         const storedUser = localStorage.getItem('currentUser');
         const storedUserData = localStorage.getItem('userData');
-        const storedUserId = localStorage.getItem('userId'); // Load userId
-
+        console.log('AuthContext: useEffect - storedUser:', storedUser); // Log storedUser
+        console.log('AuthContext: useEffect - storedUserData:', storedUserData); // Log storedUserData
         if (storedUser) {
-            setCurrentUser(JSON.parse(storedUser));
+            try {
+                setCurrentUser(JSON.parse(storedUser));
+            } catch (error) {
+                console.error('AuthContext: useEffect - Error parsing storedUser:', error);
+                localStorage.removeItem('currentUser'); // Remove invalid data
+            }
         }
-
         if (storedUserData) {
-            setUserData(JSON.parse(storedUserData));
+            try {
+                setUserData(JSON.parse(storedUserData));
+            } catch (error) {
+                console.error('AuthContext: useEffect - Error parsing storedUserData:', error);
+                localStorage.removeItem('userData'); // Remove invalid data
+            }
         }
-
-        if (storedUserId) {
-            setUserId(storedUserId); // Set userId from localStorage
-        }
-
         setLoading(false);
+        console.log('AuthContext: useEffect - loading set to false'); // Log loading state
     }, []);
 
     const loginWithEmailAndPassword = async (email, password) => {
         setLoading(true);
         setAuthError(null);
+        console.log('AuthContext: loginWithEmailAndPassword - email:', email); // Log email
+        console.log('AuthContext: loginWithEmailAndPassword - loading set to true'); // Log loading state
 
         try {
             const response = await axios.post('http://localhost:8080/auth/verify', null, {
-                params: {
-                    email,
-                    password,
-                },
+                params: { email, password },
             });
 
-            console.log('AuthContext: login response data:', response.data); // HERE IS THE ADDED LINE
+            console.log('AuthContext: loginWithEmailAndPassword - response.data:', response.data); // Log the entire response data
 
             const user = {
                 email: response.data.email,
                 role: response.data.role,
+                uid: response.data.id || response.data._id || response.data.uid || response.data.userId, // Assuming 'uid' is the property name for ID
             };
-            const fetchedUserId = response.data.id || response.data._id || response.data.uid || response.data.userId; // Assuming your backend returns an 'id' or similar
 
             setCurrentUser(user);
             setUserData(response.data);
-            setUserId(fetchedUserId); // Set userId in state
-
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('userData', JSON.stringify(response.data));
-            localStorage.setItem('userId', fetchedUserId); // Store userId in localStorage
-
-            console.log('AuthContext: login user:', user);
-            console.log('AuthContext: login userData:', response.data);
-            console.log('AuthContext: login userId:', fetchedUserId); // Log the userId
-            console.log('AuthContext: localStorage currentUser:', localStorage.getItem('currentUser'));
-            console.log('AuthContext: localStorage userData:', localStorage.getItem('userData'));
-            console.log('AuthContext: localStorage userId:', localStorage.getItem('userId')); // Log localStorage userId
-
             setLoading(false);
+            console.log('AuthContext: loginWithEmailAndPassword - currentUser set:', user); // Log currentUser
+            console.log('AuthContext: loginWithEmailAndPassword - userData set:', response.data); // Log userData
+            console.log('AuthContext: loginWithEmailAndPassword - loading set to false'); // Log loading state
         } catch (error) {
             console.error('AuthContext: login error:', error);
             setAuthError(error.message || 'Login failed. Please try again.');
             setLoading(false);
+            console.log('AuthContext: loginWithEmailAndPassword - loading set to false due to error'); // Log loading state
             throw error;
         }
     };
 
     const logout = () => {
+        console.log('AuthContext: logout - initiated'); // Log logout initiation
         setCurrentUser(null);
         setUserData(null);
-        setUserId(null); // Clear userId on logout
         localStorage.removeItem('currentUser');
         localStorage.removeItem('userData');
-        localStorage.removeItem('userId'); // Remove userId from localStorage
-
-        console.log('AuthContext: logout');
-        console.log('AuthContext: localStorage currentUser:', localStorage.getItem('currentUser'));
-        console.log('AuthContext: localStorage userData:', localStorage.getItem('userData'));
-        console.log('AuthContext: localStorage userId:', localStorage.getItem('userId')); // Log localStorage userId
+        console.log('AuthContext: logout - currentUser and userData set to null, localStorage cleared'); // Log logout completion
     };
 
     return (
-        <AuthContext.Provider value={{ currentUser, userData, userId, loginWithEmailAndPassword, logout, loading, authError, setUserData, setCurrentUser, setUserId }}>
+        <AuthContext.Provider value={{ currentUser, userData, loginWithEmailAndPassword, logout, loading, authError, setUserData, setCurrentUser }}>
             {loading ? <div>Loading...</div> : children}
         </AuthContext.Provider>
     );

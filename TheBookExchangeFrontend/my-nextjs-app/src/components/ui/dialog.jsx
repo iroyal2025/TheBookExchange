@@ -73,4 +73,8 @@ const DialogDescription = ({ children }) => {
     return <p className="text-sm text-gray-500">{children}</p>;
 };
 
-export { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription };
+const DialogFooter = ({ children, className, ...props }) => {
+    return <div className={`flex justify-end space-x-2 ${className}`} {...props}>{children}</div>;
+};
+
+export { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter };

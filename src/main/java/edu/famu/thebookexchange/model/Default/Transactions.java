@@ -8,35 +8,31 @@ import edu.famu.thebookexchange.model.Rest.DocumentReferenceDeserializer;
 import edu.famu.thebookexchange.model.Rest.DocumentReferenceSerializer;
 
 public class Transactions extends ATransactions {
-    @JsonSerialize(using = DocumentReferenceSerializer.class)
-    @JsonDeserialize(using = DocumentReferenceDeserializer.class)
-    private DocumentReference bookId;
+    private String bookId;
 
-    @JsonSerialize(using = DocumentReferenceSerializer.class)
-    @JsonDeserialize(using = DocumentReferenceDeserializer.class)
-    private DocumentReference userId;
+    private String userId;
 
-    public Transactions(String orderStatus, DocumentReference bookId, DocumentReference userId) {
+    public Transactions(String orderStatus, String bookId, String userId) {
         super(orderStatus);
         this.bookId = bookId;
         this.userId = userId;
     }
 
     // Manual Getters
-    public DocumentReference getBookId() {
+    public String getBookId() {
         return bookId;
     }
 
-    public DocumentReference getUserId() {
+    public String getUserId() {
         return userId;
     }
 
     // Manual Setters
-    public void setBookId(DocumentReference bookId) {
+    public void setBookId(String bookId) {
         this.bookId = bookId;
     }
 
-    public void setUserId(DocumentReference userId) {
+    public void setUserId(String userId) {
         this.userId = userId;
     }
 

@@ -13,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import edu.famu.thebookexchange.model.Rest.RestBooks;
 
-import java.awt.print.Book;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -251,8 +250,6 @@ public class BooksController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
-
     @GetMapping("/Books/{bookId}/owners")
     public ResponseEntity<Map<String, Object>> getBookOwners(@PathVariable String bookId, @RequestParam(required = false) String exclude) {
         logger.info("getBookOwners endpoint was hit with bookId: {} and exclude: {}", bookId, exclude);
@@ -286,21 +283,20 @@ public class BooksController {
     @PostMapping("/Exchanges/direct/request")
     public ResponseEntity<Map<String, Object>> sendDirectExchangeRequest(@RequestBody Map<String, String> payload) {
         String offeredBookId = payload.get("offeredBookId");
-        String recipientEmail = payload.get("recipientEmail");
         String requesterEmail = payload.get("requesterEmail");
 
-        if (offeredBookId == null || recipientEmail == null || requesterEmail == null) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Missing required fields."));
+        if (offeredBookId == null || requesterEmail == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Missing required fields (offeredBookId and requesterEmail)."));
         }
 
         try {
             RestBooks offeredBook = booksService.findBookById(offeredBookId);
-            if (offeredBook == null || !offeredBook.getOwnedBy().contains(requesterEmail)) {
+            if (offeredBook == null || offeredBook.getOwnedBy() == null || !offeredBook.getOwnedBy().contains(requesterEmail)) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Offered book not found or not owned by the requester."));
             }
 
-            exchangeService.createDirectExchangeRequest(offeredBookId, recipientEmail, requesterEmail); // Implement this service method
-            return ResponseEntity.ok(Map.of("success", true, "message", "Direct exchange request sent successfully."));
+            exchangeService.createDirectExchangeRequest(offeredBookId, requesterEmail); // Call with correct parameters
+            return ResponseEntity.ok(Map.of("success", true, "message", "Direct exchange request sent successfully to all students."));
 
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("success", false, "message", "Failed to send direct exchange request: " + e.getMessage()));

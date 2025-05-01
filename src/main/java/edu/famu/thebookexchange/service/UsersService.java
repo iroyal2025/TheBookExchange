@@ -423,4 +423,16 @@ public class UsersService {
             return null;
         }
     }
+
+    public String getUserEmailByUid(String uid) throws InterruptedException, ExecutionException, TimeoutException {
+        ApiFuture<QuerySnapshot> query = firestore.collection(USERS_COLLECTION)
+                .whereEqualTo("userId", uid) // Assuming 'userId' field stores the Firebase UID
+                .limit(1)
+                .get();
+        QuerySnapshot snapshot = query.get(FIRESTORE_TIMEOUT, TimeUnit.SECONDS);
+        if (!snapshot.isEmpty()) {
+            return snapshot.getDocuments().get(0).getString("email"); // Assuming 'email' field exists
+        }
+        return null;
+    }
 }

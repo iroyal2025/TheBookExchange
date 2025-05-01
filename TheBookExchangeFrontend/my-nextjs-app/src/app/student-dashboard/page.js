@@ -28,6 +28,10 @@ export default function StudentDashboard() {
         router.push('/student-dashboard/notifications');
     };
 
+    const handleTransactionsClick = () => {
+        router.push('/student-dashboard/transactions');
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-r from-orange-500 to-green-500 flex flex-col items-center justify-center">
             <div className="bg-white p-10 rounded-2xl shadow-2xl text-center w-full max-w-4xl">
@@ -61,6 +65,12 @@ export default function StudentDashboard() {
                         className="bg-blue-500 text-white hover:bg-blue-600"
                     >
                         Notifications
+                    </Button>
+                    <Button
+                        onClick={handleTransactionsClick}
+                        className="bg-purple-500 text-white hover:bg-purple-600"
+                    >
+                        Transactions
                     </Button>
                 </div>
                 <Button onClick={handleLogout} className="mt-6 bg-red-500 text-white hover:bg-red-600">
